@@ -14,8 +14,11 @@ const showUnplacedDialog = ref(false)
 const selectedTeacherIdForUnplaced = ref(null)
 const hoveredSection = shallowRef(null)
 const hoveredSectionKey = ref(null)
+const highlightedTeacherId = ref(null)
+const tableRef = ref(null)
 let hoverRafId = null
 let nextHoveredSection = null
+let clearHighlightTimeoutId = null
 
 const formatTime = (timeStr) => {
     if (!timeStr) return ''
@@ -73,8 +76,38 @@ const clearHoveredSection = () => {
     scheduleHoveredSectionUpdate(null)
 }
 
+const jumpToTeacherRow = async (targetTeacherId) => {
+    const teacherIdNum = Number(targetTeacherId)
+    if (!Number.isFinite(teacherIdNum)) return
+
+    const rowIndex = scheduleData.value.findIndex(t => Number(t.teacherId) === teacherIdNum)
+    if (rowIndex === -1) return
+
+    const tableEl = tableRef.value?.$el
+    const virtualScrollerEl = tableEl?.querySelector('.p-virtualscroller')
+    if (virtualScrollerEl) {
+        const headerEl = tableEl?.querySelector('.p-datatable-thead')
+        const headerHeight = headerEl?.getBoundingClientRect().height || 0
+        const topPadding = store.isCompressed ? 12 : 8
+        const targetTop = Math.max(0, (rowIndex * rowItemSize.value) - headerHeight - topPadding)
+        if (typeof virtualScrollerEl.scrollTo === 'function') {
+            virtualScrollerEl.scrollTo({ top: targetTop, behavior: 'smooth' })
+        } else {
+            virtualScrollerEl.scrollTop = targetTop
+        }
+    }
+
+    highlightedTeacherId.value = teacherIdNum
+    if (clearHighlightTimeoutId) clearTimeout(clearHighlightTimeoutId)
+    clearHighlightTimeoutId = setTimeout(() => {
+        highlightedTeacherId.value = null
+        clearHighlightTimeoutId = null
+    }, 1500)
+}
+
 onBeforeUnmount(() => {
     if (hoverRafId != null) cancelAnimationFrame(hoverRafId)
+    if (clearHighlightTimeoutId) clearTimeout(clearHighlightTimeoutId)
 })
 </script>
 
@@ -95,6 +128,7 @@ onBeforeUnmount(() => {
         </div>
         
         <DataTable
+            ref="tableRef"
             :value="scheduleData"
             :loading="store.loading"
             stripedRows
@@ -112,7 +146,13 @@ onBeforeUnmount(() => {
             </template>
             <Column field="teacherName" header="Teacher" frozen class="font-bold teacher-col" :style="{ width: store.isCompressed ? '120px' : '150px' }">
                 <template #body="slotProps">
-                    <div class="flex flex-col gap-1 py-1">
+                    <div
+                        :id="`teacher-row-${slotProps.data.teacherId}`"
+                        :class="[
+                            'flex flex-col gap-1 py-1 rounded transition-colors duration-150',
+                            Number(highlightedTeacherId) === Number(slotProps.data.teacherId) ? 'bg-yellow-100/80 dark:bg-yellow-900/40' : ''
+                        ]"
+                    >
                         <div class="flex items-start justify-between gap-1">
                             <span class="truncate leading-tight text-[11px] text-gray-900 dark:text-gray-100" v-tooltip.top="slotProps.data.teacherName">
                                 {{ slotProps.data.teacherName }}
@@ -148,6 +188,7 @@ onBeforeUnmount(() => {
                         @hover="setHoveredSection"
                         @leave="clearHoveredSection"
                         @toggle-lock="id => store.toggleLock(id)"
+                        @jump-to-teacher="jumpToTeacherRow"
                     />
                 </template>
             </Column>

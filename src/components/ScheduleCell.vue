@@ -11,7 +11,7 @@ const props = defineProps({
     hoveredSection: Object
 })
 
-const emit = defineEmits(['hover', 'leave', 'toggle-lock'])
+const emit = defineEmits(['hover', 'leave', 'toggle-lock', 'jump-to-teacher'])
 
 const userSelectedLayerIndex = ref(0)
 const currentLayerIndex = ref(0)
@@ -134,10 +134,12 @@ watch(() => props.hoveredSection, (newTarget) => {
                         <SectionCard 
                             v-else
                             :section="section"
+                            :current-teacher-id="teacher.teacherId"
                             :hovered-section="hoveredSection"
                             @hover="s => emit('hover', s)"
                             @leave="() => emit('leave')"
                             @toggle-lock="id => emit('toggle-lock', id)"
+                            @jump-to-teacher="id => emit('jump-to-teacher', id)"
                         />
                     </template>
                 </template>

@@ -7,10 +7,11 @@ import { getCourseByIdMap, getHighlightClass, getStudentByIdMap } from '../utils
 
 const props = defineProps({
     section: Object,
-    hoveredSection: Object
+    hoveredSection: Object,
+    currentTeacherId: [Number, String]
 })
 
-const emit = defineEmits(['hover', 'leave', 'toggle-lock'])
+const emit = defineEmits(['hover', 'leave', 'toggle-lock', 'jump-to-teacher'])
 const showStudentsDialog = ref(false)
 
 const scheduledStudents = computed(() => {
@@ -85,6 +86,59 @@ const quickFlags = computed(() => {
     return flags
 })
 
+const compactBadgeLabels = computed(() => {
+    const badges = []
+    if (props.section.quarters) badges.push({ key: 'q', label: `Q ${props.section.quarters}`, tone: 'slate' })
+    if (props.section.days) badges.push({ key: 'd', label: `D ${props.section.days}`, tone: 'emerald' })
+    quickFlags.value.forEach(flag => badges.push({ key: flag.key, label: flag.label, tone: flag.tone }))
+    return badges
+})
+
+const compactBadgeCount = computed(() => compactBadgeLabels.value.length)
+const sectionQuarterCount = computed(() => {
+    const explicitCount = Number(props.section.quarterCount)
+    if (Number.isFinite(explicitCount) && explicitCount > 0) return explicitCount
+    if (!props.section.quarters) return 0
+    return String(props.section.quarters)
+        .split(',')
+        .map(q => q.trim())
+        .filter(Boolean).length
+})
+const useCompactBadgeOverlay = computed(() => store.isCompressed && sectionQuarterCount.value <= 1)
+
+const teacherNameById = computed(() => {
+    const map = new Map()
+    const teachers = store.localDataset?.teachers
+    if (!Array.isArray(teachers)) return map
+    teachers.forEach(t => {
+        if (t?.teacherId != null) map.set(String(t.teacherId), t.name || `Teacher ${t.teacherId}`)
+    })
+    return map
+})
+
+const coTeachers = computed(() => {
+    const teacherIds = Array.from(
+        new Set(
+            [
+                ...(Array.isArray(props.section.teacherIds) ? props.section.teacherIds : []),
+                ...(Array.isArray(props.section.teacher_ids) ? props.section.teacher_ids : []),
+                props.section.teacherId,
+                props.section.teacher_id
+            ].filter(id => id != null).map(id => String(id))
+        )
+    )
+
+    if (teacherIds.length <= 1) return []
+
+    const currentTeacherId = props.currentTeacherId != null ? String(props.currentTeacherId) : null
+    return teacherIds
+        .filter(id => id !== currentTeacherId)
+        .map(id => ({
+            teacherId: id,
+            name: teacherNameById.value.get(id) || `Teacher ${id}`
+        }))
+})
+
 const previewStudents = computed(() => scheduledStudents.value.slice(0, 2))
 const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.length - previewStudents.value.length))
 </script>
@@ -120,73 +174,132 @@ const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.le
             </div>
         </div>
 
+        <div
+            v-if="useCompactBadgeOverlay && compactBadgeCount > 0"
+            class="absolute top-4 left-2 right-2 z-30 opacity-0 translate-y-1 group-hover/segment:opacity-100 group-hover/segment:translate-y-0 transition-all duration-150 pointer-events-auto"
+        >
+            <div class="rounded-md border border-slate-200/80 dark:border-slate-700/80 bg-white/95 dark:bg-slate-900/95 shadow-sm p-1 flex flex-wrap gap-1">
+                <span
+                    v-for="badge in compactBadgeLabels"
+                    :key="badge.key"
+                    :class="[
+                        'px-1.5 py-0.5 rounded-full text-[7px] leading-none font-black uppercase tracking-wider',
+                        badge.tone === 'slate' ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300' : '',
+                        badge.tone === 'teal' ? 'bg-teal-100/80 dark:bg-teal-900/30 text-teal-600 dark:text-teal-300' : '',
+                        badge.tone === 'emerald' ? 'bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300' : '',
+                        badge.tone === 'orange' ? 'bg-orange-100/80 dark:bg-orange-900/30 text-orange-600 dark:text-orange-300' : '',
+                        badge.tone === 'violet' ? 'bg-violet-100/70 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300' : '',
+                        badge.tone === 'sky' ? 'bg-sky-100/70 dark:bg-sky-900/30 text-sky-600 dark:text-sky-300' : '',
+                        badge.tone === 'indigo' ? 'bg-indigo-100/70 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300' : '',
+                        badge.tone === 'amber' ? 'bg-amber-100/70 dark:bg-amber-900/30 text-amber-600 dark:text-amber-300' : ''
+                    ]"
+                >
+                    {{ badge.label }}
+                </span>
+                <button
+                    v-for="ct in coTeachers"
+                    :key="'compact-co-' + ct.teacherId"
+                    type="button"
+                    @click.stop="emit('jump-to-teacher', ct.teacherId)"
+                    class="px-1.5 py-0.5 rounded-full text-[7px] leading-none font-black bg-teal-100/80 dark:bg-teal-900/30 text-teal-600 dark:text-teal-300 hover:bg-teal-200/80 dark:hover:bg-teal-900/50 hover:underline cursor-pointer"
+                    v-tooltip.top="`Jump to ${ct.name}`"
+                >
+                    {{ ct.name }}
+                </button>
+            </div>
+        </div>
+
         <div class="flex-1 min-h-0 text-center flex flex-col overflow-hidden">
             <div class="flex items-start justify-between gap-1 shrink-0">
-                <div :class="['font-black uppercase tracking-tighter line-clamp-1 leading-tight mb-0.5 flex-1', store.isCompressed ? 'text-[8px]' : 'text-[9px]', section.isLab ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400']"
-                     v-tooltip.top="section.course_name">
-                    {{ section.course_name }}
+                <div class="flex items-start gap-1 min-w-0 flex-1">
+                    <span
+                        v-if="useCompactBadgeOverlay && compactBadgeCount > 0"
+                        class="inline-flex items-center justify-center min-w-[12px] h-[12px] px-1 rounded-full text-[7px] font-black bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 shrink-0 cursor-help"
+                    >
+                        {{ compactBadgeCount }}
+                    </span>
+                    <div :class="['font-black uppercase tracking-tighter line-clamp-1 leading-tight mb-0.5 min-w-0 flex-1', store.isCompressed ? 'text-[8px]' : 'text-[9px]', section.isLab ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400']"
+                         v-tooltip.top="section.course_name">
+                        {{ section.course_name }}
+                    </div>
                 </div>
                 <i :class="['pi cursor-pointer transition-colors', store.isCompressed ? 'text-[8px]' : 'text-[10px]', section.locked ? 'pi-lock text-amber-500' : 'pi-lock-open text-gray-300 hover:text-blue-400']" 
                    @click.stop="emit('toggle-lock', section.sectionId)"
                    v-tooltip.top="section.locked ? 'Unlock Placement' : 'Lock Placement'"></i>
             </div>
             
-            <div class="space-y-1.5 mt-1 mb-1.5 shrink-0">
-                <div class="flex flex-wrap gap-1">
-                    <span
-                        v-if="section.quarters"
-                        class="px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300"
-                    >
-                        Q {{ section.quarters }}
-                    </span>
-                    <span
-                        v-if="section.days"
-                        class="px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300"
-                    >
-                        D {{ section.days }}
-                    </span>
-                    <span
-                        v-for="flag in quickFlags"
-                        :key="flag.key"
-                        :class="[
-                            'px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider',
-                            flag.tone === 'teal' ? 'bg-teal-100/80 dark:bg-teal-900/30 text-teal-600 dark:text-teal-300' : '',
-                            flag.tone === 'emerald' ? 'bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300' : '',
-                            flag.tone === 'orange' ? 'bg-orange-100/80 dark:bg-orange-900/30 text-orange-600 dark:text-orange-300' : '',
-                            flag.tone === 'violet' ? 'bg-violet-100/70 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300' : '',
-                            flag.tone === 'sky' ? 'bg-sky-100/70 dark:bg-sky-900/30 text-sky-600 dark:text-sky-300' : '',
-                            flag.tone === 'indigo' ? 'bg-indigo-100/70 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300' : '',
-                            flag.tone === 'amber' ? 'bg-amber-100/70 dark:bg-amber-900/30 text-amber-600 dark:text-amber-300' : ''
-                        ]"
-                    >
-                        {{ flag.label }}
-                    </span>
-                </div>
-
-                <div class="flex items-center justify-between text-[7px] font-bold">
-                    <span class="text-slate-400 dark:text-slate-500 uppercase tracking-wider">Seats</span>
-                    <span
-                        :class="[
-                            hasCapacityRisk ? 'text-red-500 dark:text-red-400' : 'text-slate-500 dark:text-slate-300'
-                        ]"
-                    >
-                        {{ enrolledCount }}<template v-if="courseCapacity">/{{ courseCapacity }}</template>
-                        <template v-if="seatUtilization != null"> · {{ seatUtilization }}%</template>
-                    </span>
-                </div>
-
-                <div v-if="!store.isCompressed" class="space-y-0.5">
-                    <div
-                        v-for="st in previewStudents"
-                        :key="st.studentId || st.student_id || st.id || st._displayName"
-                        class="truncate text-[7px] font-semibold text-slate-500 dark:text-slate-300"
-                    >
-                        {{ st._displayName }}
+            <div v-if="!store.isCompressed || !useCompactBadgeOverlay" class="space-y-1.5 mt-1 mb-1.5 shrink-0">
+                    <div class="flex flex-wrap gap-1">
+                        <span
+                            v-if="section.quarters"
+                            class="px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300"
+                        >
+                            Q {{ section.quarters }}
+                        </span>
+                        <span
+                            v-if="section.days"
+                            class="px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300"
+                        >
+                            D {{ section.days }}
+                        </span>
+                        <span
+                            v-for="flag in quickFlags"
+                            :key="flag.key"
+                            :class="[
+                                'px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider',
+                                flag.tone === 'teal' ? 'bg-teal-100/80 dark:bg-teal-900/30 text-teal-600 dark:text-teal-300' : '',
+                                flag.tone === 'emerald' ? 'bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300' : '',
+                                flag.tone === 'orange' ? 'bg-orange-100/80 dark:bg-orange-900/30 text-orange-600 dark:text-orange-300' : '',
+                                flag.tone === 'violet' ? 'bg-violet-100/70 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300' : '',
+                                flag.tone === 'sky' ? 'bg-sky-100/70 dark:bg-sky-900/30 text-sky-600 dark:text-sky-300' : '',
+                                flag.tone === 'indigo' ? 'bg-indigo-100/70 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300' : '',
+                                flag.tone === 'amber' ? 'bg-amber-100/70 dark:bg-amber-900/30 text-amber-600 dark:text-amber-300' : ''
+                            ]"
+                        >
+                            {{ flag.label }}
+                        </span>
                     </div>
-                    <div v-if="hiddenPreviewCount > 0" class="text-[7px] font-black text-blue-500 dark:text-blue-300 uppercase tracking-wider">
-                        +{{ hiddenPreviewCount }} more
+
+                    <div v-if="!store.isCompressed" class="flex items-center justify-between text-[7px] font-bold">
+                        <span class="text-slate-400 dark:text-slate-500 uppercase tracking-wider">Seats</span>
+                        <span
+                            :class="[
+                                hasCapacityRisk ? 'text-red-500 dark:text-red-400' : 'text-slate-500 dark:text-slate-300'
+                            ]"
+                        >
+                            {{ enrolledCount }}<template v-if="courseCapacity">/{{ courseCapacity }}</template>
+                            <template v-if="seatUtilization != null"> · {{ seatUtilization }}%</template>
+                        </span>
                     </div>
-                </div>
+
+                    <div v-if="coTeachers.length > 0" class="flex flex-wrap gap-1 items-center">
+                    <span :class="['font-black uppercase tracking-wider text-teal-500 dark:text-teal-300', store.isCompressed ? 'text-[6px]' : 'text-[7px]']">With</span>
+                    <button
+                        v-for="ct in coTeachers"
+                        :key="ct.teacherId"
+                        type="button"
+                        @click.stop="emit('jump-to-teacher', ct.teacherId)"
+                        :class="[
+                            'font-black px-1.5 py-0.5 rounded bg-teal-100/80 dark:bg-teal-900/30 text-teal-600 dark:text-teal-300 hover:bg-teal-200/80 dark:hover:bg-teal-900/50 hover:underline transition-colors cursor-pointer',
+                            store.isCompressed ? 'text-[6px]' : 'text-[7px]'
+                        ]"
+                        v-tooltip.top="`Jump to ${ct.name}`"
+                    >
+                        {{ ct.name }}
+                    </button>
+                    </div>
+                    <div v-if="!store.isCompressed" class="space-y-0.5">
+                        <div
+                            v-for="st in previewStudents"
+                            :key="st.studentId || st.student_id || st.id || st._displayName"
+                            class="truncate text-[7px] font-semibold text-slate-500 dark:text-slate-300"
+                        >
+                            {{ st._displayName }}
+                        </div>
+                        <div v-if="hiddenPreviewCount > 0" class="text-[7px] font-black text-blue-500 dark:text-blue-300 uppercase tracking-wider">
+                            +{{ hiddenPreviewCount }} more
+                        </div>
+                    </div>
             </div>
         </div>
         
