@@ -8,11 +8,12 @@ import UnplacedSectionsDialog from './UnplacedSectionsDialog.vue'
 import ScheduleCell from './ScheduleCell.vue'
 import TeacherSummaryCell from './TeacherSummaryCell.vue'
 import PeriodHeaderCell from './PeriodHeaderCell.vue'
+
 import { store } from '../../store'
-import { isRelatedSection } from '../../utils/scheduleHelpers'
 import { useMasterScheduleTableConfig } from '../../composables/useMasterScheduleTableConfig'
 import { useSectionNavigation } from '../../composables/useSectionNavigation'
 import { useViewportTableHeight } from '../../composables/useViewportTableHeight'
+import { isRelatedSection } from '../../utils'
 
 const showUnplacedDialog = ref(false)
 const selectedTeacherIdForUnplaced = ref(null)

@@ -1,5 +1,5 @@
 import { computed } from 'vue'
-import { transformScheduleData, transformPeriods } from '../utils/scheduleTransformer'
+import { transformScheduleData, transformPeriods } from '../utils'
 
 export function useMasterScheduleTableConfig({ localDataset, isCompressed }) {
     const periods = computed(() => transformPeriods(localDataset.value?.scheduleStructure))

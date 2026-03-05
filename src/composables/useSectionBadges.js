@@ -1,5 +1,5 @@
 import { computed, unref } from 'vue'
-import { getCourseByIdMap } from '../utils/scheduleHelpers'
+import { getCourseByIdMap } from '../utils'
 
 export function useSectionBadges({ section, currentTeacherId, localDataset, isCompressed }) {
     const sectionValue = computed(() => unref(section) || {})

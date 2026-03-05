@@ -1,6 +1,6 @@
 <script setup>
 import { CopyButton } from '../common'
-import { formatTime12h } from '../../utils/formatters'
+import { formatTime12h } from '../../utils'
 
 const props = defineProps({
     period: {

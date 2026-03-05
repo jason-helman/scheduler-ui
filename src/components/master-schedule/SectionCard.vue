@@ -1,10 +1,11 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+
+import { useSectionBadges } from '../../composables/useSectionBadges'
 import { store } from '../../store'
 import { CopyButton } from '../common'
-import { useSectionBadges } from '../../composables/useSectionBadges'
-import { getCourseByIdMap, getHighlightClass, getStudentByIdMap } from '../../utils/scheduleHelpers'
 import { SectionCardHeader, SectionCardBadges, SectionCardFooter, SectionStudentsDialog } from './section-card'
+import { getCourseByIdMap, getHighlightClass, getStudentByIdMap } from '../../utils'
 
 const props = defineProps({
     section: Object,
