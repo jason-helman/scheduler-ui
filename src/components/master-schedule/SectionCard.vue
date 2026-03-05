@@ -1,10 +1,10 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { store } from '../../store'
-import Dialog from 'primevue/dialog'
-import { CopyButton, BadgeList } from '../common'
+import { CopyButton } from '../common'
 import { useSectionBadges } from '../../composables/useSectionBadges'
 import { getCourseByIdMap, getHighlightClass, getStudentByIdMap } from '../../utils/scheduleHelpers'
+import { SectionCardHeader, SectionCardBadges, SectionCardFooter, SectionStudentsDialog } from './section-card'
 
 const props = defineProps({
     section: Object,
@@ -180,122 +180,46 @@ watch(
             </div>
         </div>
 
-        <div
-            v-if="useCompactBadgeOverlay && compactBadgeCount > 0"
-            class="absolute top-4 left-2 right-2 z-30 opacity-0 translate-y-1 group-hover/segment:opacity-100 group-hover/segment:translate-y-0 transition-all duration-150 pointer-events-auto"
-        >
-            <div class="rounded-md border border-slate-200/80 dark:border-slate-700/80 bg-white/95 dark:bg-slate-900/95 shadow-sm p-1 flex flex-wrap gap-1">
-                <BadgeList :items="compactBadgeLabels" />
-                <BadgeList
-                    :items="coTeacherBadgeItems"
-                    @item-click="item => emit('jump-to-teacher', item.payload)"
-                />
-                <BadgeList
-                    :items="mainSectionBadgeItems"
-                    @item-click="item => emit('jump-to-section', item.payload)"
-                />
-            </div>
-        </div>
-
         <div ref="bodyEl" class="flex-1 min-h-0 text-center flex flex-col overflow-hidden">
-            <div class="flex items-start justify-between gap-1 shrink-0">
-                <div class="flex items-start gap-1 min-w-0 flex-1">
-                    <span
-                        v-if="useCompactBadgeOverlay && compactBadgeCount > 0"
-                        class="inline-flex items-center justify-center min-w-[12px] h-[12px] px-1 rounded-full text-[7px] font-black bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 shrink-0 cursor-help"
-                    >
-                        {{ compactBadgeCount }}
-                    </span>
-                    <div :class="['font-black uppercase tracking-tighter line-clamp-1 leading-tight mb-0.5 min-w-0 flex-1', store.isCompressed ? 'text-[8px]' : 'text-[9px]', section.isLab ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400']"
-                         v-tooltip.top="section.course_name">
-                        {{ section.course_name }}
-                    </div>
-                </div>
-                <i :class="['pi cursor-pointer transition-colors', store.isCompressed ? 'text-[8px]' : 'text-[10px]', section.locked ? 'pi-lock text-amber-500' : 'pi-lock-open text-gray-300 hover:text-blue-400']" 
-                   @click.stop="emit('toggle-lock', section.sectionId)"
-                   v-tooltip.top="section.locked ? 'Unlock Placement' : 'Lock Placement'"></i>
-            </div>
-            
-            <div v-if="!useCompactBadgeOverlay" class="space-y-1.5 mt-1 mb-1.5 shrink-0">
-                    <BadgeList
-                        :items="inlineBadges"
-                        :collapse-wrapped="!store.isCompressed"
-                        :max-rows="effectiveInlineBadgeRows"
-                    />
+            <SectionCardHeader
+                :section="section"
+                :is-compressed="store.isCompressed"
+                :use-compact-badge-overlay="useCompactBadgeOverlay"
+                :compact-badge-count="compactBadgeCount"
+                @toggle-lock="id => emit('toggle-lock', id)"
+            />
 
-                    <div v-if="!store.isCompressed" class="flex items-center justify-between text-[7px] font-bold">
-                        <span class="text-slate-400 dark:text-slate-500 uppercase tracking-wider">Seats</span>
-                        <span
-                            :class="[
-                                hasCapacityRisk ? 'text-red-500 dark:text-red-400' : 'text-slate-500 dark:text-slate-300'
-                            ]"
-                        >
-                            {{ enrolledCount }}<template v-if="courseCapacity">/{{ courseCapacity }}</template>
-                            <template v-if="seatUtilization != null"> · {{ seatUtilization }}%</template>
-                        </span>
-                    </div>
+            <SectionCardBadges
+                :is-compressed="store.isCompressed"
+                :compact-badge-labels="compactBadgeLabels"
+                :compact-badge-count="compactBadgeCount"
+                :use-compact-badge-overlay="useCompactBadgeOverlay"
+                :inline-badges="inlineBadges"
+                :co-teachers="coTeachers"
+                :co-teacher-badge-items="coTeacherBadgeItems"
+                :main-section-badge-items="mainSectionBadgeItems"
+                :effective-inline-badge-rows="effectiveInlineBadgeRows"
+                :enrolled-count="enrolledCount"
+                :course-capacity="courseCapacity"
+                :seat-utilization="seatUtilization"
+                :has-capacity-risk="hasCapacityRisk"
+                @jump-to-teacher="payload => emit('jump-to-teacher', payload)"
+                @jump-to-section="payload => emit('jump-to-section', payload)"
+            />
+        </div>
 
-                    <div v-if="coTeachers.length > 0" class="flex flex-wrap gap-1 items-center">
-                    <span :class="['font-black uppercase tracking-wider text-teal-500 dark:text-teal-300 select-none cursor-default', store.isCompressed ? 'text-[6px]' : 'text-[7px]']">With</span>
-                    <BadgeList
-                        :items="coTeacherBadgeItems"
-                        shape="rounded"
-                        @item-click="item => emit('jump-to-teacher', item.payload)"
-                    />
-                    </div>
-                    <div v-if="mainSectionBadgeItems.length > 0" class="flex flex-wrap gap-1 items-center">
-                    <span :class="['font-black uppercase tracking-wider text-indigo-500 dark:text-indigo-300 select-none cursor-default', store.isCompressed ? 'text-[6px]' : 'text-[7px]']">Main</span>
-                    <BadgeList
-                        :items="mainSectionBadgeItems"
-                        shape="rounded"
-                        @item-click="item => emit('jump-to-section', item.payload)"
-                    />
-                    </div>
-            </div>
-        </div>
-        
-        <div :class="['flex items-center justify-between mt-auto pt-1 border-t border-gray-50 dark:border-gray-800 shrink-0', store.isCompressed ? 'gap-1' : '']">
-            <div :class="['flex items-center gap-1 text-gray-400 dark:text-gray-500 font-bold truncate flex-1', store.isCompressed ? 'text-[7px]' : 'text-[8px]']">
-                <i :class="['pi pi-map-marker', store.isCompressed ? 'text-[6px]' : 'text-[7px]']"></i>
-                {{ section.room_name }}
-            </div>
-            <button
-                type="button"
-                @click.stop="showStudentsDialog = true"
-                :class="[
-                    'flex items-center gap-1 font-black text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer',
-                    store.isCompressed ? 'text-[7px]' : 'text-[8px]'
-                ]"
-                v-tooltip.top="'View Students'"
-            >
-                <i :class="['pi pi-users', store.isCompressed ? 'text-[7px]' : 'text-[8px]']"></i>
-                {{ section.student_count }}
-            </button>
-        </div>
+        <SectionCardFooter
+            :section="section"
+            :is-compressed="store.isCompressed"
+            @view-students="showStudentsDialog = true"
+        />
     </div>
 
-    <Dialog
-        v-if="showStudentsDialog"
+    <SectionStudentsDialog
         v-model:visible="showStudentsDialog"
-        modal
-        :header="`${section.course_name} · Students`"
-        :style="{ width: '26rem' }"
-        :dismissableMask="true"
-    >
-        <div class="max-h-[55vh] overflow-y-auto pr-1 space-y-1.5">
-            <div
-                v-for="st in scheduledStudents"
-                :key="st.studentId || st.student_id || st.id || st._displayName"
-                class="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 bg-gray-50 dark:bg-gray-800/60"
-            >
-                <span class="truncate text-xs font-semibold text-gray-700 dark:text-gray-300">{{ st._displayName }}</span>
-                <span v-if="st.grade" class="text-[11px] text-blue-500 font-bold shrink-0">Grade {{ st.grade }}</span>
-            </div>
-            <div v-if="scheduledStudents.length === 0" class="py-8 text-center text-xs text-gray-400 dark:text-gray-500 font-semibold">
-                No students scheduled
-            </div>
-        </div>
-    </Dialog>
+        :section="section"
+        :scheduled-students="scheduledStudents"
+    />
 </template>
 
 <style scoped>
