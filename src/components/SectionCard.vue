@@ -9,10 +9,12 @@ import { getCourseByIdMap, getHighlightClass, getStudentByIdMap } from '../utils
 const props = defineProps({
     section: Object,
     hoveredSection: Object,
-    currentTeacherId: [Number, String]
+    currentTeacherId: [Number, String],
+    jumpPulseSectionId: [Number, String],
+    jumpPulseVisible: Boolean
 })
 
-const emit = defineEmits(['hover', 'leave', 'toggle-lock', 'jump-to-teacher'])
+const emit = defineEmits(['hover', 'leave', 'toggle-lock', 'jump-to-teacher', 'jump-to-section'])
 const showStudentsDialog = ref(false)
 const cardEl = ref(null)
 const bodyEl = ref(null)
@@ -226,13 +228,45 @@ const coTeacherBadgeItems = computed(() =>
         key: ct.teacherId,
         label: ct.name,
         tone: 'teal',
-        tooltip: `Jump to ${ct.name}`,
+        tooltip: `Jump to ${ct.name}'s related section`,
         clickable: true,
-        payload: ct.teacherId
+        payload: {
+            teacherId: ct.teacherId,
+            sourceSectionId: props.section.sectionId,
+            sourceSpanId: props.section.spanId,
+            sourceParentSectionId: props.section.parentSectionId
+        }
     }))
 )
+const parentSection = computed(() => {
+    const parentSectionId = props.section.parentSectionId
+    if (parentSectionId == null) return null
+    const sections = store.localDataset?.sections
+    if (!Array.isArray(sections)) return { sectionId: parentSectionId }
+    return sections.find(s => String(s.sectionId) === String(parentSectionId)) || { sectionId: parentSectionId }
+})
+const mainSectionBadgeItems = computed(() => {
+    if (!parentSection.value) return []
+    const parent = parentSection.value
+    const courseName = parent.course_name || parent.courseCode || `Section ${parent.sectionId}`
+    return [
+        {
+            key: `main-${parent.sectionId}`,
+            label: `Main ${courseName}`,
+            tone: 'indigo',
+            tooltip: `Jump to main section (${courseName})`,
+            clickable: true,
+            payload: parent.sectionId
+        }
+    ]
+})
 const effectiveInlineBadgeRows = computed(() =>
     measuredBadgeRows.value != null ? measuredBadgeRows.value : badgeRowsToShow.value
+)
+const isJumpPulseActive = computed(() =>
+    !!props.jumpPulseVisible &&
+    props.jumpPulseSectionId != null &&
+    String(props.section.sectionId) === String(props.jumpPulseSectionId)
 )
 
 const recomputeBadgeRows = async () => {
@@ -285,7 +319,8 @@ watch(
         store.isCompressed,
         useCompactBadgeOverlay.value,
         inlineBadges.value.length,
-        coTeacherBadgeItems.value.length
+        coTeacherBadgeItems.value.length,
+        mainSectionBadgeItems.value.length
     ],
     () => {
         recomputeBadgeRows()
@@ -297,13 +332,15 @@ watch(
 <template>
     <div
          ref="cardEl"
+         :data-section-id="section.sectionId"
          @mouseenter="emit('hover', section)"
          @mouseleave="emit('leave')"
          :style="{ 
             gridRow: `${section.startQ} / ${section.endQ + 1}`
          }"
          :class="[
-            'border bg-white dark:bg-gray-900 shadow-sm transition-shadow duration-75 hover:shadow-md flex flex-col justify-between overflow-hidden z-10 w-full h-full min-h-0 group/segment relative hover:z-[200] cursor-default ring-inset hover:ring-2 hover:ring-blue-500/40',
+            'border bg-white dark:bg-gray-900 shadow-sm transition-[box-shadow,background-color,border-color,outline-color] duration-300 hover:shadow-md flex flex-col justify-between overflow-hidden z-10 w-full h-full min-h-0 group/segment relative hover:z-[200] cursor-default ring-inset hover:ring-2 hover:ring-blue-500/40',
+            isJumpPulseActive ? 'jump-pulse-hover' : '',
             store.isCompressed ? 'p-1.5 rounded-lg' : 'p-2.5 rounded-xl',
             section.locked ? 'border-amber-200 dark:border-amber-900/50 bg-amber-50/30 dark:bg-amber-900/10' : 'border-gray-100 dark:border-gray-700',
             section.isLab ? 'is-lab' : '',
@@ -335,6 +372,10 @@ watch(
                 <BadgeList
                     :items="coTeacherBadgeItems"
                     @item-click="item => emit('jump-to-teacher', item.payload)"
+                />
+                <BadgeList
+                    :items="mainSectionBadgeItems"
+                    @item-click="item => emit('jump-to-section', item.payload)"
                 />
             </div>
         </div>
@@ -383,6 +424,14 @@ watch(
                         :items="coTeacherBadgeItems"
                         shape="rounded"
                         @item-click="item => emit('jump-to-teacher', item.payload)"
+                    />
+                    </div>
+                    <div v-if="mainSectionBadgeItems.length > 0" class="flex flex-wrap gap-1 items-center">
+                    <span :class="['font-black uppercase tracking-wider text-indigo-500 dark:text-indigo-300 select-none cursor-default', store.isCompressed ? 'text-[6px]' : 'text-[7px]']">Main</span>
+                    <BadgeList
+                        :items="mainSectionBadgeItems"
+                        shape="rounded"
+                        @item-click="item => emit('jump-to-section', item.payload)"
                     />
                     </div>
             </div>
@@ -444,6 +493,7 @@ watch(
 }
 
 .highlight-primary {
+    transition: none !important;
     outline: 3px solid #3b82f6 !important;
     border-color: #3b82f6 !important;
     background-color: #eff6ff !important;
@@ -456,6 +506,7 @@ watch(
 }
 
 .highlight-lab {
+    transition: none !important;
     outline: 3px solid #10b981 !important;
     border-color: #10b981 !important;
     background-color: #ecfdf5 !important;
@@ -469,6 +520,7 @@ watch(
 }
 
 .highlight-subsection {
+    transition: none !important;
     outline: 3px solid #6366f1 !important;
     border-color: #6366f1 !important;
     background-color: #eef2ff !important;
@@ -478,6 +530,18 @@ watch(
 
 .my-app-dark .highlight-subsection {
     background-color: #312e81 !important;
+}
+
+.jump-pulse-hover {
+    outline: 3px solid #3b82f6 !important;
+    border-color: #3b82f6 !important;
+    background-color: #eff6ff !important;
+    box-shadow: 0 4px 12px -4px rgba(59, 130, 246, 0.35) !important;
+    transition: background-color 380ms ease, border-color 380ms ease, box-shadow 380ms ease, outline-color 380ms ease !important;
+}
+
+.my-app-dark .jump-pulse-hover {
+    background-color: #1e3a8a !important;
 }
 
 /* Scrollbar refinement */

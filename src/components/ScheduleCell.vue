@@ -8,10 +8,12 @@ import { store } from '../store'
 const props = defineProps({
     teacher: Object,
     periodId: [Number, String],
-    hoveredSection: Object
+    hoveredSection: Object,
+    jumpPulseSectionId: [Number, String],
+    jumpPulseVisible: Boolean
 })
 
-const emit = defineEmits(['hover', 'leave', 'toggle-lock', 'jump-to-teacher'])
+const emit = defineEmits(['hover', 'leave', 'toggle-lock', 'jump-to-teacher', 'jump-to-section'])
 
 const userSelectedLayerIndex = ref(0)
 const currentLayerIndex = ref(0)
@@ -89,7 +91,7 @@ watch(() => props.hoveredSection, (newTarget) => {
     if (currentLayerIndex.value !== userSelectedLayerIndex.value) {
         currentLayerIndex.value = userSelectedLayerIndex.value
     }
-})
+}, { immediate: true })
 </script>
 
 <template>
@@ -136,10 +138,13 @@ watch(() => props.hoveredSection, (newTarget) => {
                             :section="section"
                             :current-teacher-id="teacher.teacherId"
                             :hovered-section="hoveredSection"
+                            :jump-pulse-section-id="jumpPulseSectionId"
+                            :jump-pulse-visible="jumpPulseVisible"
                             @hover="s => emit('hover', s)"
                             @leave="() => emit('leave')"
                             @toggle-lock="id => emit('toggle-lock', id)"
                             @jump-to-teacher="id => emit('jump-to-teacher', id)"
+                            @jump-to-section="id => emit('jump-to-section', id)"
                         />
                     </template>
                 </template>
