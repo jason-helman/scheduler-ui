@@ -1,6 +1,6 @@
 export function transformScheduleData(localDataset) {
     if (!localDataset) return []
-    
+
     const teacherMap = {}
 
     // Initialize teacher map from teachers list if available to include those without sections and capture restrictions
@@ -27,15 +27,18 @@ export function transformScheduleData(localDataset) {
                     restrictedCoursePeriods: []
                 }
             }
-            
-            const qArray = s.quarters ? s.quarters.split(',').map(n => parseInt(n)) : [1, 2, 3, 4]
+
+            const qArray = s.quarters ? s.quarters.split(',').map(n => parseInt(n)) : []
+            if (s.sectionId === 52185) {
+                console.log(s, qArray);
+            }
             const sectionData = {
                 ...s,
                 startQ: qArray.length ? Math.min(...qArray) : 1,
                 endQ: qArray.length ? Math.max(...qArray) : 4,
                 quarterCount: qArray.length
             }
-            
+
             if (!s.coursePeriodIds || s.coursePeriodIds.length === 0) {
                 teacherMap[s.teacherId].unplacedSections.push(sectionData)
             } else if (Array.isArray(s.coursePeriodIds)) {
@@ -51,7 +54,7 @@ export function transformScheduleData(localDataset) {
 
     const result = Object.values(teacherMap).map(teacher => {
         const periodLayers = {}
-        
+
         // Add restrictions to raw sections for layer processing
         teacher.restrictedCoursePeriods.forEach(pid => {
             if (!teacher.periodRawSections[pid]) {
@@ -101,7 +104,7 @@ export function transformScheduleData(localDataset) {
 
 export function transformPeriods(scheduleStructure) {
     if (!scheduleStructure) return []
-    
+
     const periodMap = new Map()
     scheduleStructure.forEach(ss => {
         if (!periodMap.has(ss.coursePeriodId)) {
