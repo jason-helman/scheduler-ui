@@ -1,5 +1,6 @@
 <script setup>
 import { CopyButton } from '../common'
+import { formatTime12h } from '../../utils/formatters'
 
 const props = defineProps({
     period: {
@@ -16,14 +17,6 @@ const props = defineProps({
     }
 })
 
-const formatTime = (timeStr) => {
-    if (!timeStr) return ''
-    const [h, m] = timeStr.split(':')
-    const hours = parseInt(h)
-    const suffix = hours >= 12 ? 'pm' : 'am'
-    const displayHours = ((hours + 11) % 12 + 1).toString().padStart(2, '0')
-    return `${displayHours}:${m}${suffix}`
-}
 </script>
 
 <template>
@@ -33,7 +26,7 @@ const formatTime = (timeStr) => {
             <CopyButton v-if="showIds && period.coursePeriodId != null" :value="period.coursePeriodId" label="Period ID" />
         </div>
         <span v-if="period.startTime" :class="['font-bold opacity-60 tracking-normal normal-case mt-0.5', isCompressed ? 'text-[8px]' : 'text-[9px]']">
-            {{ formatTime(period.startTime) }} - {{ formatTime(period.endTime) }}
+            {{ formatTime12h(period.startTime) }} - {{ formatTime12h(period.endTime) }}
         </span>
     </div>
 </template>
