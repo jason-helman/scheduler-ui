@@ -48,7 +48,7 @@ const toneClass = computed(() => {
     if (props.tone === 'orange') return 'bg-orange-100/80 dark:bg-orange-900/30 text-orange-600 dark:text-orange-300'
     if (props.tone === 'violet') return 'bg-violet-100/70 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300'
     if (props.tone === 'sky') return 'bg-sky-100/70 dark:bg-sky-900/30 text-sky-600 dark:text-sky-300'
-    if (props.tone === 'indigo') return 'bg-indigo-100/70 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300'
+    if (props.tone === 'indigo') return 'bg-indigo-100/85 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-200 ring-indigo-300/80 dark:ring-indigo-500/70'
     if (props.tone === 'amber') return 'bg-amber-100/70 dark:bg-amber-900/30 text-amber-600 dark:text-amber-300'
     if (props.tone === 'blue') return 'bg-blue-100/80 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300'
     return 'bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-300'
@@ -57,7 +57,7 @@ const toneClass = computed(() => {
 const chipClass = computed(() => {
     const classes = [
         'inline-flex items-center justify-center font-black select-none',
-        'ring-1 ring-black/10 dark:ring-white/12 shadow-[0_1px_2px_rgba(15,23,42,0.10)] dark:shadow-[0_1px_2px_rgba(2,6,23,0.35)]',
+        'ring-1 ring-inset ring-black/10 dark:ring-white/12 shadow-[0_1px_2px_rgba(15,23,42,0.10)] dark:shadow-[0_1px_2px_rgba(2,6,23,0.35)]',
         props.shape === 'pill' ? 'rounded-full' : 'rounded',
         props.size === 'sm' ? 'text-[8px] px-1 py-0.5' : 'text-[7px] px-1.5 py-0.5',
         props.size === 'sm' ? 'tracking-wide' : 'tracking-wider'

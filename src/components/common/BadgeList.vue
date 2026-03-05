@@ -162,7 +162,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div ref="containerEl" :class="['relative flex', wrap ? 'flex-wrap' : 'flex-nowrap overflow-hidden', gapClass, containerClass]">
+    <div ref="containerEl" :class="['relative flex', wrap ? 'flex-wrap' : 'flex-nowrap min-w-0', gapClass, containerClass]">
         <BadgeChip
             v-for="(item, idx) in visibleItems"
             :key="getKey(item, idx)"
