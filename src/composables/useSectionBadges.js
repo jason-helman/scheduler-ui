@@ -194,9 +194,10 @@ export function useSectionBadges({ section, currentTeacherId, localDataset, isCo
         return [
             {
                 key: `main-${parent.sectionId}`,
-                label: `Main ${courseName}`,
+                label: courseName,
                 tone: 'indigo',
                 tooltip: `Jump to main section (${courseName})`,
+                truncate: true,
                 clickable: true,
                 payload: parent.sectionId
             }

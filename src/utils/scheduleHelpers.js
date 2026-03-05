@@ -69,6 +69,7 @@ export function getHighlightClass(section, target) {
     const isPrimaryRelated = section.sectionId === target.sectionId || (target.spanId && section.spanId === target.spanId)
 
     if (isPrimaryRelated) {
+        if (section.parentSectionId) return 'highlight-subsection'
         return section.isLab ? 'highlight-lab' : 'highlight-primary'
     }
     
@@ -79,7 +80,7 @@ export function getHighlightClass(section, target) {
         (target.parentSectionId && section.parentSectionId === target.parentSectionId)
         
     if (isSubsectionRel) {
-        return 'highlight-subsection'
+        return section.parentSectionId ? 'highlight-subsection' : 'highlight-primary'
     }
     
     return ''

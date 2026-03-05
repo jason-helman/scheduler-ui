@@ -87,9 +87,15 @@ const emit = defineEmits(['jump-to-teacher', 'jump-to-section'])
             <BadgeList :items="coTeacherBadgeItems" shape="rounded" @item-click="item => emit('jump-to-teacher', item.payload)" />
         </div>
 
-        <div v-if="mainSectionBadgeItems.length > 0" class="flex flex-wrap gap-1 items-center">
-            <span :class="['font-black uppercase tracking-wider text-indigo-500 dark:text-indigo-300 select-none cursor-default', isCompressed ? 'text-[6px]' : 'text-[7px]']">Main</span>
-            <BadgeList :items="mainSectionBadgeItems" shape="rounded" @item-click="item => emit('jump-to-section', item.payload)" />
+        <div v-if="mainSectionBadgeItems.length > 0" class="flex flex-nowrap gap-1 items-center min-w-0">
+            <span :class="['font-black uppercase tracking-wider text-indigo-500 dark:text-indigo-300 select-none cursor-default shrink-0', isCompressed ? 'text-[6px]' : 'text-[7px]']">Main</span>
+            <BadgeList
+                :items="mainSectionBadgeItems"
+                shape="rounded"
+                :wrap="false"
+                container-class="min-w-0 flex-1"
+                @item-click="item => emit('jump-to-section', item.payload)"
+            />
         </div>
     </div>
 </template>

@@ -162,6 +162,7 @@ watch(
             store.isCompressed ? 'p-1.5 rounded-lg' : 'p-2.5 rounded-xl',
             section.locked ? 'border-amber-200 dark:border-amber-900/50 bg-amber-50/30 dark:bg-amber-900/10' : 'border-gray-100 dark:border-gray-700',
             section.isLab ? 'is-lab' : '',
+            section.parentSectionId ? 'is-subsection' : '',
             getHighlightClass(section, hoveredSection)
          ]">
         
@@ -232,6 +233,16 @@ watch(
 .my-app-dark .is-lab {
     border-color: #059669 !important;
     background-color: #064e3b !important;
+}
+
+.is-subsection {
+    border-color: #6366f1 !important;
+    background-color: #eef2ff !important;
+}
+
+.my-app-dark .is-subsection {
+    border-color: #4f46e5 !important;
+    background-color: #312e81 !important;
 }
 
 .highlight-primary {

@@ -29,6 +29,14 @@ const props = defineProps({
     tooltip: {
         type: String,
         default: ''
+    },
+    truncate: {
+        type: Boolean,
+        default: false
+    },
+    maxWidthClass: {
+        type: String,
+        default: ''
     }
 })
 
@@ -49,12 +57,17 @@ const toneClass = computed(() => {
 const chipClass = computed(() => {
     const classes = [
         'inline-flex items-center justify-center font-black select-none',
+        'ring-1 ring-black/10 dark:ring-white/12 shadow-[0_1px_2px_rgba(15,23,42,0.10)] dark:shadow-[0_1px_2px_rgba(2,6,23,0.35)]',
         props.shape === 'pill' ? 'rounded-full' : 'rounded',
         props.size === 'sm' ? 'text-[8px] px-1 py-0.5' : 'text-[7px] px-1.5 py-0.5',
         props.size === 'sm' ? 'tracking-wide' : 'tracking-wider'
     ]
 
     classes.push(toneClass.value)
+    if (props.truncate) {
+        classes.push('min-w-0 max-w-full overflow-hidden justify-start')
+    }
+    if (props.maxWidthClass) classes.push(props.maxWidthClass)
 
     if (props.interactive || props.asButton) {
         classes.push('cursor-pointer hover:underline transition-colors')
@@ -78,6 +91,8 @@ const tagName = computed(() => (props.asButton ? 'button' : 'span'))
         v-tooltip.top="tooltip || null"
         @click="emit('click')"
     >
-        <slot>{{ label }}</slot>
+        <span :class="props.truncate ? 'block min-w-0 max-w-full truncate whitespace-nowrap' : ''">
+            <slot>{{ label }}</slot>
+        </span>
     </component>
 </template>

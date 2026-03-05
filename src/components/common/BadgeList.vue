@@ -23,6 +23,10 @@ const props = defineProps({
         type: String,
         default: ''
     },
+    wrap: {
+        type: Boolean,
+        default: true
+    },
     collapseWrapped: {
         type: Boolean,
         default: false
@@ -158,7 +162,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div ref="containerEl" :class="['relative flex flex-wrap', gapClass, containerClass]">
+    <div ref="containerEl" :class="['relative flex', wrap ? 'flex-wrap' : 'flex-nowrap overflow-hidden', gapClass, containerClass]">
         <BadgeChip
             v-for="(item, idx) in visibleItems"
             :key="getKey(item, idx)"
@@ -167,6 +171,8 @@ onBeforeUnmount(() => {
             :size="item.size || size"
             :shape="item.shape || shape"
             :tooltip="item.tooltip || ''"
+            :truncate="!!item.truncate"
+            :max-width-class="item.maxWidthClass || ''"
             :as-button="isInteractive(item)"
             :interactive="isInteractive(item)"
             @click="emit('item-click', item)"
@@ -200,6 +206,8 @@ onBeforeUnmount(() => {
                         :size="item.size || size"
                         :shape="item.shape || shape"
                         :tooltip="item.tooltip || ''"
+                        :truncate="!!item.truncate"
+                        :max-width-class="item.maxWidthClass || ''"
                         :as-button="isInteractive(item)"
                         :interactive="isInteractive(item)"
                         @click="emit('item-click', item)"
@@ -224,6 +232,8 @@ onBeforeUnmount(() => {
                     :tone="item.tone || 'slate'"
                     :size="item.size || size"
                     :shape="item.shape || shape"
+                    :truncate="!!item.truncate"
+                    :max-width-class="item.maxWidthClass || ''"
                 />
             </span>
         </div>
