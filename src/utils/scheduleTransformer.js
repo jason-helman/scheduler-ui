@@ -2,10 +2,12 @@ export function transformScheduleData(localDataset) {
     if (!localDataset) return []
 
     const teacherMap = {}
+    const teacherNameById = new Map()
 
     // Initialize teacher map from teachers list if available to include those without sections and capture restrictions
     if (localDataset.teachers) {
         localDataset.teachers.forEach(t => {
+            teacherNameById.set(t.teacherId, t.name)
             teacherMap[t.teacherId] = {
                 teacherName: t.name,
                 teacherId: t.teacherId,
@@ -18,20 +20,31 @@ export function transformScheduleData(localDataset) {
 
     if (localDataset.sections) {
         localDataset.sections.forEach(s => {
-            if (!teacherMap[s.teacherId]) {
-                teacherMap[s.teacherId] = {
-                    teacherName: s.teacher_name,
-                    teacherId: s.teacherId,
+            const assignedTeacherIds = Array.from(
+                new Set(
+                    [
+                        ...(Array.isArray(s.teacherIds) ? s.teacherIds : []),
+                        ...(Array.isArray(s.teacher_ids) ? s.teacher_ids : []),
+                        s.teacherId,
+                        s.teacher_id
+                    ].filter(id => id != null)
+                )
+            )
+
+            if (assignedTeacherIds.length === 0) return
+
+            assignedTeacherIds.forEach(teacherId => {
+                if (teacherMap[teacherId]) return
+                teacherMap[teacherId] = {
+                    teacherName: teacherNameById.get(teacherId) || s.teacher_name || `Teacher ${teacherId}`,
+                    teacherId,
                     unplacedSections: [],
                     periodRawSections: {},
                     restrictedCoursePeriods: []
                 }
-            }
+            })
 
             const qArray = s.quarters ? s.quarters.split(',').map(n => parseInt(n)) : []
-            if (s.sectionId === 52185) {
-                console.log(s, qArray);
-            }
             const sectionData = {
                 ...s,
                 startQ: qArray.length ? Math.min(...qArray) : 1,
@@ -39,16 +52,18 @@ export function transformScheduleData(localDataset) {
                 quarterCount: qArray.length
             }
 
-            if (!s.coursePeriodIds || s.coursePeriodIds.length === 0) {
-                teacherMap[s.teacherId].unplacedSections.push(sectionData)
-            } else if (Array.isArray(s.coursePeriodIds)) {
-                s.coursePeriodIds.forEach(pid => {
-                    if (!teacherMap[s.teacherId].periodRawSections[pid]) {
-                        teacherMap[s.teacherId].periodRawSections[pid] = []
-                    }
-                    teacherMap[s.teacherId].periodRawSections[pid].push(sectionData)
-                })
-            }
+            assignedTeacherIds.forEach(teacherId => {
+                if (!s.coursePeriodIds || s.coursePeriodIds.length === 0) {
+                    teacherMap[teacherId].unplacedSections.push(sectionData)
+                } else if (Array.isArray(s.coursePeriodIds)) {
+                    s.coursePeriodIds.forEach(pid => {
+                        if (!teacherMap[teacherId].periodRawSections[pid]) {
+                            teacherMap[teacherId].periodRawSections[pid] = []
+                        }
+                        teacherMap[teacherId].periodRawSections[pid].push(sectionData)
+                    })
+                }
+            })
         })
     }
 

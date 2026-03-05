@@ -46,7 +46,7 @@ export default defineConfig({
             fetchTable('course_periods', 'school_id = ? AND schedule_version_id = ? AND is_deleted = 0', [schoolId, svId])
           ]);
 
-          const [courseOptions, classroomDepts, teacherPeriods, studentOptions, sectionCoursePeriods, sectionsQuarterDay, studentSchedules, sectionSpans, subsections] = await Promise.all([
+          const [courseOptions, classroomDepts, teacherPeriods, studentOptions, sectionCoursePeriods, sectionsQuarterDay, studentSchedules, sectionSpans, subsections, sectionSecondaryTeachers] = await Promise.all([
             fetchTable('course_options', 'school_id = ? AND schedule_version_id = ?', [schoolId, svId]),
             fetchTable('data_departments', 'school_id = ? AND schedule_version_id = ? AND data_type = 1 AND is_deleted = 0', [schoolId, svId]),
             fetchTable('teacher_period_restrictions', 'school_id = ? AND schedule_version_id = ? AND is_deleted = 0', [schoolId, svId]),
@@ -55,7 +55,8 @@ export default defineConfig({
             fetchTable('sections_quarter_day', 'school_id = ? AND schedule_version_id = ?', [schoolId, svId]),
             fetchTable('student_schedules', 'school_id = ? AND schedule_version_id = ? AND is_deleted = 0', [schoolId, svId]),
             fetchTable('sections_span', 'school_id = ? AND schedule_version_id = ? AND is_deleted = 0', [schoolId, svId]),
-            fetchTable('sections_subsection', 'school_id = ? AND schedule_version_id = ? AND is_deleted = 0', [schoolId, svId])
+            fetchTable('sections_subsection', 'school_id = ? AND schedule_version_id = ? AND is_deleted = 0', [schoolId, svId]),
+            fetchTable('section_secondary_teachers', 'school_id = ? AND schedule_version_id = ?', [schoolId, svId])
           ]);
 
           const [lunchDays] = await pool.execute('SELECT ld.* FROM lunch_days ld JOIN lunches l ON ld.lunch_id = l.lunch_id WHERE l.school_id = ? AND l.schedule_version_id = ? AND l.is_deleted = 0', [schoolId, svId]);
@@ -128,6 +129,11 @@ export default defineConfig({
 
               const spanEntry = sectionSpans.find(ss => ss.section_id === s.section_id);
               const subsectionEntry = subsections.find(sub => sub.subsection_id === s.section_id);
+              const secondaryTeacherIds = sectionSecondaryTeachers
+                .filter(row => row.section_id === s.section_id)
+                .map(row => row.teacher_id)
+                .filter(id => id != null);
+              const teacherIds = Array.from(new Set([s.teacher_id, ...secondaryTeacherIds].filter(id => id != null)));
               const scheduledStudentIds = studentSchedules
                 .filter(ss => ss.section_id === s.section_id)
                 .map(ss => ss.student_id);
@@ -136,6 +142,9 @@ export default defineConfig({
                 sectionId: s.section_id,
                 courseId: s.course_id,
                 teacherId: s.teacher_id,
+                teacherIds,
+                coTeacherIds: secondaryTeacherIds,
+                isCoTaught: secondaryTeacherIds.length > 0,
                 classroomId: s.classroom_id,
                 coursePeriodIds: periods.length > 0 ? periods : undefined,
                 locked: !!s.locked,

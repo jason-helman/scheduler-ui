@@ -51,6 +51,17 @@ const isLunchSection = computed(() => {
     return !!course?.isLunchCourse
 })
 
+const isCoTaughtSection = computed(() => {
+    if (props.section.isCoTaught != null) return !!props.section.isCoTaught
+    if (props.section.is_co_taught != null) return !!props.section.is_co_taught
+    if (props.section.coTeacherId || props.section.co_teacher_id) return true
+    if (Array.isArray(props.section.coTeacherIds) && props.section.coTeacherIds.length > 0) return true
+    if (Array.isArray(props.section.co_teacher_ids) && props.section.co_teacher_ids.length > 0) return true
+    if (Array.isArray(props.section.teacherIds) && props.section.teacherIds.length > 1) return true
+    if (Array.isArray(props.section.teacher_ids) && props.section.teacher_ids.length > 1) return true
+    return false
+})
+
 const seatUtilization = computed(() => {
     if (!courseCapacity.value) return null
     return Math.round((enrolledCount.value / courseCapacity.value) * 100)
@@ -64,6 +75,7 @@ const hasCapacityRisk = computed(() => {
 const quickFlags = computed(() => {
     const flags = []
     const hasMultiPeriodSpan = Array.isArray(props.section.coursePeriodIds) && props.section.coursePeriodIds.length > 1
+    if (isCoTaughtSection.value) flags.push({ key: 'co', label: 'Co-Taught', tone: 'teal' })
     if (isLunchSection.value) flags.push({ key: 'lunch', label: 'Lunch', tone: 'orange' })
     if (props.section.isLab) flags.push({ key: 'lab', label: 'Lab', tone: 'emerald' })
     if (props.section.isInclusion) flags.push({ key: 'inclusion', label: 'Inclusion', tone: 'violet' })
@@ -138,6 +150,7 @@ const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.le
                         :key="flag.key"
                         :class="[
                             'px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider',
+                            flag.tone === 'teal' ? 'bg-teal-100/80 dark:bg-teal-900/30 text-teal-600 dark:text-teal-300' : '',
                             flag.tone === 'emerald' ? 'bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300' : '',
                             flag.tone === 'orange' ? 'bg-orange-100/80 dark:bg-orange-900/30 text-orange-600 dark:text-orange-300' : '',
                             flag.tone === 'violet' ? 'bg-violet-100/70 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300' : '',
