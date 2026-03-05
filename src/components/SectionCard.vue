@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { store } from '../store'
 import Dialog from 'primevue/dialog'
 import CopyButton from './CopyButton.vue'
+import BadgeChip from './BadgeChip.vue'
 import { getCourseByIdMap, getHighlightClass, getStudentByIdMap } from '../utils/scheduleHelpers'
 
 const props = defineProps({
@@ -179,33 +180,28 @@ const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.le
             class="absolute top-4 left-2 right-2 z-30 opacity-0 translate-y-1 group-hover/segment:opacity-100 group-hover/segment:translate-y-0 transition-all duration-150 pointer-events-auto"
         >
             <div class="rounded-md border border-slate-200/80 dark:border-slate-700/80 bg-white/95 dark:bg-slate-900/95 shadow-sm p-1 flex flex-wrap gap-1">
-                <span
+                <BadgeChip
                     v-for="badge in compactBadgeLabels"
                     :key="badge.key"
-                    :class="[
-                        'px-1.5 py-0.5 rounded-full text-[7px] leading-none font-black uppercase tracking-wider select-none cursor-default',
-                        badge.tone === 'slate' ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300' : '',
-                        badge.tone === 'teal' ? 'bg-teal-100/80 dark:bg-teal-900/30 text-teal-600 dark:text-teal-300' : '',
-                        badge.tone === 'emerald' ? 'bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300' : '',
-                        badge.tone === 'orange' ? 'bg-orange-100/80 dark:bg-orange-900/30 text-orange-600 dark:text-orange-300' : '',
-                        badge.tone === 'violet' ? 'bg-violet-100/70 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300' : '',
-                        badge.tone === 'sky' ? 'bg-sky-100/70 dark:bg-sky-900/30 text-sky-600 dark:text-sky-300' : '',
-                        badge.tone === 'indigo' ? 'bg-indigo-100/70 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300' : '',
-                        badge.tone === 'amber' ? 'bg-amber-100/70 dark:bg-amber-900/30 text-amber-600 dark:text-amber-300' : ''
-                    ]"
+                    :label="badge.label"
+                    :tone="badge.tone"
+                    size="xs"
+                    shape="pill"
                 >
-                    {{ badge.label }}
-                </span>
-                <button
+                </BadgeChip>
+                <BadgeChip
                     v-for="ct in coTeachers"
                     :key="'compact-co-' + ct.teacherId"
-                    type="button"
-                    @click.stop="emit('jump-to-teacher', ct.teacherId)"
-                    class="px-1.5 py-0.5 rounded-full text-[7px] leading-none font-black bg-teal-100/80 dark:bg-teal-900/30 text-teal-600 dark:text-teal-300 hover:bg-teal-200/80 dark:hover:bg-teal-900/50 hover:underline cursor-pointer"
-                    v-tooltip.top="`Jump to ${ct.name}`"
+                    :label="ct.name"
+                    tone="teal"
+                    size="xs"
+                    shape="pill"
+                    :as-button="true"
+                    :interactive="true"
+                    :tooltip="`Jump to ${ct.name}`"
+                    @click="emit('jump-to-teacher', ct.teacherId)"
                 >
-                    {{ ct.name }}
-                </button>
+                </BadgeChip>
             </div>
         </div>
 
@@ -230,34 +226,31 @@ const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.le
             
             <div v-if="!store.isCompressed || !useCompactBadgeOverlay" class="space-y-1.5 mt-1 mb-1.5 shrink-0">
                     <div class="flex flex-wrap gap-1">
-                        <span
+                        <BadgeChip
                             v-if="section.quarters"
-                            class="px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 select-none cursor-default"
+                            :label="`Q ${section.quarters}`"
+                            tone="slate"
+                            size="xs"
+                            shape="pill"
                         >
-                            Q {{ section.quarters }}
-                        </span>
-                        <span
+                        </BadgeChip>
+                        <BadgeChip
                             v-if="section.days"
-                            class="px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300 select-none cursor-default"
+                            :label="`D ${section.days}`"
+                            tone="emerald"
+                            size="xs"
+                            shape="pill"
                         >
-                            D {{ section.days }}
-                        </span>
-                        <span
+                        </BadgeChip>
+                        <BadgeChip
                             v-for="flag in quickFlags"
                             :key="flag.key"
-                            :class="[
-                                'px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider select-none cursor-default',
-                                flag.tone === 'teal' ? 'bg-teal-100/80 dark:bg-teal-900/30 text-teal-600 dark:text-teal-300' : '',
-                                flag.tone === 'emerald' ? 'bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300' : '',
-                                flag.tone === 'orange' ? 'bg-orange-100/80 dark:bg-orange-900/30 text-orange-600 dark:text-orange-300' : '',
-                                flag.tone === 'violet' ? 'bg-violet-100/70 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300' : '',
-                                flag.tone === 'sky' ? 'bg-sky-100/70 dark:bg-sky-900/30 text-sky-600 dark:text-sky-300' : '',
-                                flag.tone === 'indigo' ? 'bg-indigo-100/70 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300' : '',
-                                flag.tone === 'amber' ? 'bg-amber-100/70 dark:bg-amber-900/30 text-amber-600 dark:text-amber-300' : ''
-                            ]"
+                            :label="flag.label"
+                            :tone="flag.tone"
+                            size="xs"
+                            shape="pill"
                         >
-                            {{ flag.label }}
-                        </span>
+                        </BadgeChip>
                     </div>
 
                     <div v-if="!store.isCompressed" class="flex items-center justify-between text-[7px] font-bold">
@@ -274,19 +267,19 @@ const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.le
 
                     <div v-if="coTeachers.length > 0" class="flex flex-wrap gap-1 items-center">
                     <span :class="['font-black uppercase tracking-wider text-teal-500 dark:text-teal-300 select-none cursor-default', store.isCompressed ? 'text-[6px]' : 'text-[7px]']">With</span>
-                    <button
+                    <BadgeChip
                         v-for="ct in coTeachers"
                         :key="ct.teacherId"
-                        type="button"
-                        @click.stop="emit('jump-to-teacher', ct.teacherId)"
-                        :class="[
-                            'font-black px-1.5 py-0.5 rounded bg-teal-100/80 dark:bg-teal-900/30 text-teal-600 dark:text-teal-300 hover:bg-teal-200/80 dark:hover:bg-teal-900/50 hover:underline transition-colors cursor-pointer',
-                            store.isCompressed ? 'text-[6px]' : 'text-[7px]'
-                        ]"
-                        v-tooltip.top="`Jump to ${ct.name}`"
+                        :label="ct.name"
+                        tone="teal"
+                        :size="store.isCompressed ? 'xs' : 'xs'"
+                        shape="rounded"
+                        :as-button="true"
+                        :interactive="true"
+                        :tooltip="`Jump to ${ct.name}`"
+                        @click="emit('jump-to-teacher', ct.teacherId)"
                     >
-                        {{ ct.name }}
-                    </button>
+                    </BadgeChip>
                     </div>
                     <div v-if="!store.isCompressed" class="space-y-0.5">
                         <div

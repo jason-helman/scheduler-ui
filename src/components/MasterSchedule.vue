@@ -3,6 +3,7 @@ import { ref, computed, shallowRef, onBeforeUnmount } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Badge from 'primevue/badge'
+import BadgeChip from './BadgeChip.vue'
 import CopyButton from './CopyButton.vue'
 import ScheduleSelector from './ScheduleSelector.vue'
 import UnplacedSectionsDialog from './UnplacedSectionsDialog.vue'
@@ -161,42 +162,38 @@ onBeforeUnmount(() => {
                         </div>
 
                         <div class="flex flex-wrap items-center gap-1 text-[8px] font-black uppercase tracking-wider">
-                            <span class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-300 select-none cursor-default">
-                                {{ slotProps.data.summary?.sections ?? 0 }} Sec
-                            </span>
-                            <span class="px-1 py-0.5 rounded bg-blue-100/80 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 select-none cursor-default">
-                                {{ slotProps.data.summary?.students ?? 0 }} Stu
-                            </span>
-                            <span
-                                :class="[
-                                    'px-1 py-0.5 rounded select-none cursor-default',
-                                    (slotProps.data.summary?.unplaced ?? 0) > 0
-                                        ? 'bg-amber-100/80 dark:bg-amber-900/30 text-amber-600 dark:text-amber-300'
-                                        : 'bg-emerald-100/80 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300'
-                                ]"
-                            >
-                                {{ slotProps.data.summary?.placementPct ?? 100 }}% Placed
-                            </span>
+                            <BadgeChip :label="`${slotProps.data.summary?.sections ?? 0} Sec`" tone="slate" size="sm" shape="rounded" />
+                            <BadgeChip :label="`${slotProps.data.summary?.students ?? 0} Stu`" tone="blue" size="sm" shape="rounded" />
+                            <BadgeChip
+                                :label="`${slotProps.data.summary?.placementPct ?? 100}% Placed`"
+                                :tone="(slotProps.data.summary?.unplaced ?? 0) > 0 ? 'amber' : 'emerald'"
+                                size="sm"
+                                shape="rounded"
+                            />
                         </div>
 
                         <div class="text-[8px] font-bold text-gray-500 dark:text-gray-400 leading-tight">
                             <span class="uppercase tracking-wider">Classrooms:</span>
-                            <span
-                                class="ml-1 inline-flex items-center px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-200 cursor-help select-none hover:bg-slate-200 dark:hover:bg-slate-600/70 transition-colors"
-                                v-tooltip.top="slotProps.data.summary?.classroomList || 'No classrooms'"
-                            >
-                                {{ slotProps.data.summary?.classroomCount ?? slotProps.data.summary?.roomDiversity ?? 0 }}
-                            </span>
+                            <BadgeChip
+                                class="ml-1"
+                                :label="`${slotProps.data.summary?.classroomCount ?? slotProps.data.summary?.roomDiversity ?? 0}`"
+                                tone="slate"
+                                size="sm"
+                                shape="rounded"
+                                :tooltip="slotProps.data.summary?.classroomList || 'No classrooms'"
+                            />
                         </div>
 
                         <div class="text-[8px] font-bold text-gray-500 dark:text-gray-400 leading-tight">
                             <span class="uppercase tracking-wider">Subjects:</span>
-                            <span
-                                class="ml-1 inline-flex items-center px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-200 cursor-help select-none hover:bg-slate-200 dark:hover:bg-slate-600/70 transition-colors"
-                                v-tooltip.top="slotProps.data.summary?.subjectList || 'No subjects'"
-                            >
-                                {{ slotProps.data.summary?.subjectCount ?? 0 }}
-                            </span>
+                            <BadgeChip
+                                class="ml-1"
+                                :label="`${slotProps.data.summary?.subjectCount ?? 0}`"
+                                tone="slate"
+                                size="sm"
+                                shape="rounded"
+                                :tooltip="slotProps.data.summary?.subjectList || 'No subjects'"
+                            />
                         </div>
 
                         <div v-if="(slotProps.data.unplacedSections || []).length > 0" 
