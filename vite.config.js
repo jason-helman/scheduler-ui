@@ -80,7 +80,7 @@ export default defineConfig({
                 capacity: opt?.capacity || 25,
                 priority: opt?.priority || 10,
                 departments: courseDepts.filter(d => d.data_id === c.course_id).map(d => d.department_id),
-                quarterLength: QUARTER_GROUPS[opt?.quarter_length] || QUARTER_GROUPS.FY,
+                quarterLength: QUARTER_GROUPS[opt?.semester] || QUARTER_GROUPS.FY,
                 spanLength: opt?.span_length || 1,
                 allowInclusion: !!opt?.allow_icr_students,
                 isLunchCourse: !!opt?.is_lunch
@@ -261,17 +261,17 @@ export default defineConfig({
                       room_name: roomName
                     };
                   }
-                  return { 
-                    ...uiS, 
-                    section_id: uiS.sectionId, 
+                  return {
+                    ...uiS,
+                    section_id: uiS.sectionId,
                     course_id: uiS.courseId,
                     teacher_id: uiS.teacherId,
                     classroom_id: classroomId,
                     room_name: roomName,
-                    course_period_ids: [], 
+                    course_period_ids: [],
                     quarters_days: null,
-                    quarters: null, 
-                    days: '' 
+                    quarters: null,
+                    days: ''
                   };
                 });
 
