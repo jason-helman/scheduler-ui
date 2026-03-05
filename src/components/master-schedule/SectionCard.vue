@@ -24,13 +24,15 @@ const measuredBadgeRows = ref(null)
 let badgeFitToken = 0
 let cardResizeObserver = null
 
+const scheduledStudentIds = computed(() => props.section.scheduledStudentIds || props.section.scheduled_student_ids || [])
+
 const scheduledStudents = computed(() => {
-    const sectionStudentIds = props.section.scheduledStudentIds || props.section.scheduled_student_ids || []
-    if (!store.localDataset || !Array.isArray(store.localDataset.students) || sectionStudentIds.length === 0) return []
+    if (!showStudentsDialog.value || scheduledStudentIds.value.length === 0) return []
+    if (!store.localDataset || !Array.isArray(store.localDataset.students)) return []
 
     const studentById = getStudentByIdMap(store.localDataset)
 
-    return sectionStudentIds
+    return scheduledStudentIds.value
         .map(id => {
             const student = studentById.get(String(id))
             if (!student) return null
@@ -47,7 +49,7 @@ const scheduledStudents = computed(() => {
         .filter(Boolean)
 })
 
-const enrolledCount = computed(() => Number(props.section.student_count ?? scheduledStudents.value.length ?? 0))
+const enrolledCount = computed(() => Number(props.section.student_count ?? scheduledStudentIds.value.length ?? 0))
 
 const courseCapacity = computed(() => {
     if (!store.localDataset) return null
@@ -154,7 +156,7 @@ watch(
          :data-section-id="section.sectionId"
          @mouseenter="emit('hover', section)"
          @mouseleave="emit('leave')"
-         :style="{ 
+         :style="{
             gridRow: `${section.startQ} / ${section.endQ + 1}`
          }"
          :class="[
@@ -166,7 +168,7 @@ watch(
             section.parentSectionId ? 'is-subsection' : '',
             getHighlightClass(section, hoveredSection)
          ]">
-        
+
         <!-- Debug ID Overlay -->
         <div v-if="store.showIds" class="absolute inset-0 bg-blue-600/95 flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover/segment:opacity-100 transition-opacity z-50 p-2">
             <div class="flex items-center justify-between w-full">

@@ -5,11 +5,13 @@ export function useMasterScheduleTableConfig({ localDataset, isCompressed }) {
     const periods = computed(() => transformPeriods(localDataset.value?.scheduleStructure))
     const scheduleData = computed(() => transformScheduleData(localDataset.value))
     const rowItemSize = computed(() => (isCompressed.value ? 264 : 354))
-    const toleratedItems = computed(() => (isCompressed.value ? 30 : 24))
+    // Keep overscan modest so deep scrolls do not mount too many heavyweight rows at once.
+    const toleratedItems = computed(() => (isCompressed.value ? 10 : 8))
+
     const virtualScrollerOptions = computed(() => ({
         itemSize: rowItemSize.value,
         numToleratedItems: toleratedItems.value,
-        delay: 0,
+        delay: 16,
         showLoader: false
     }))
 

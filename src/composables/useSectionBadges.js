@@ -1,5 +1,5 @@
 import { computed, unref } from 'vue'
-import { getCourseByIdMap } from '../utils'
+import { getCourseByIdMap, getSectionByIdMap, getTeacherNameByIdMap } from '../utils'
 
 export function useSectionBadges({ section, currentTeacherId, localDataset, isCompressed }) {
     const sectionValue = computed(() => unref(section) || {})
@@ -130,15 +130,7 @@ export function useSectionBadges({ section, currentTeacherId, localDataset, isCo
     const compactBadgeCount = computed(() => compactBadgeLabels.value.length)
     const useCompactBadgeOverlay = computed(() => isCompressed.value && sectionQuarterCount.value === 1)
 
-    const teacherNameById = computed(() => {
-        const map = new Map()
-        const teachers = localDataset.value?.teachers
-        if (!Array.isArray(teachers)) return map
-        teachers.forEach(t => {
-            if (t?.teacherId != null) map.set(String(t.teacherId), t.name || `Teacher ${t.teacherId}`)
-        })
-        return map
-    })
+    const teacherNameById = computed(() => getTeacherNameByIdMap(localDataset.value))
 
     const coTeachers = computed(() => {
         const teacherIds = Array.from(
@@ -169,22 +161,22 @@ export function useSectionBadges({ section, currentTeacherId, localDataset, isCo
             label: ct.name,
             tone: 'teal',
             tooltip: `Jump to ${ct.name}'s related section`,
-                clickable: true,
-                payload: {
-                    teacherId: ct.teacherId,
-                    sourceSectionId: sectionValue.value.sectionId,
-                    sourceSpanId: sectionValue.value.spanId,
-                    sourceParentSectionId: sectionValue.value.parentSectionId
-                }
-            }))
+            clickable: true,
+            payload: {
+                teacherId: ct.teacherId,
+                sourceSectionId: sectionValue.value.sectionId,
+                sourceSpanId: sectionValue.value.spanId,
+                sourceParentSectionId: sectionValue.value.parentSectionId
+            }
+        }))
     )
 
     const parentSection = computed(() => {
         const parentSectionId = sectionValue.value.parentSectionId
         if (parentSectionId == null) return null
-        const sections = localDataset.value?.sections
-        if (!Array.isArray(sections)) return { sectionId: parentSectionId }
-        return sections.find(s => String(s.sectionId) === String(parentSectionId)) || { sectionId: parentSectionId }
+
+        const indexedParent = getSectionByIdMap(localDataset.value).get(String(parentSectionId))
+        return indexedParent || { sectionId: parentSectionId }
     })
 
     const mainSectionBadgeItems = computed(() => {
