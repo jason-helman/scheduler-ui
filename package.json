@@ -1,0 +1,26 @@
+{
+  "name": "scheduler-ui",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@primevue/themes": "^4.5.4",
+    "@tailwindcss/vite": "^4.2.1",
+    "lucide-vue-next": "^0.577.0",
+    "mysql2": "^3.18.2",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.5.4",
+    "scheduler-library": "file:../scheduler-library",
+    "tailwindcss": "^4.2.1",
+    "vue": "^3.5.25"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.2",
+    "vite": "^7.3.1"
+  }
+}

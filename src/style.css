@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: var(--p-primary-color);
+  --color-primary-contrast: var(--p-primary-contrast-color);
+}
+
+/* Force Tailwind 4 to use our custom dark mode class instead of system media query */
+@custom-variant dark (&:where(.my-app-dark, .my-app-dark *));
+
+@layer base {
+  body {
+    @apply m-0 p-0 antialiased;
+  }
+}
