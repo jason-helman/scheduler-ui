@@ -4,7 +4,7 @@ import { store } from '../../store'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import ProgressBar from 'primevue/progressbar'
-import CopyButton from '../CopyButton.vue'
+import CopyButton from '../common/CopyButton.vue'
 
 const roomUsage = computed(() => {
     if (!store.localDataset) return []

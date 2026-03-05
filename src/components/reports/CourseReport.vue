@@ -5,7 +5,7 @@ import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Tag from 'primevue/tag'
 import ProgressBar from 'primevue/progressbar'
-import CopyButton from '../CopyButton.vue'
+import CopyButton from '../common/CopyButton.vue'
 
 const courseStats = computed(() => {
     if (!store.localDataset) return []

@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { store } from '../../store'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import CopyButton from '../CopyButton.vue'
+import CopyButton from '../common/CopyButton.vue'
 
 const teacherLoad = computed(() => {
     if (!store.localDataset) return []

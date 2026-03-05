@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import MasterSchedule from './components/master-schedule/MasterSchedule.vue'
+import { MasterSchedule } from './components/master-schedule'
 import Reports from './components/Reports.vue'
 import Diagnostics from './components/Diagnostics.vue'
 import Button from 'primevue/button'
