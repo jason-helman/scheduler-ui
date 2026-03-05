@@ -9,6 +9,10 @@ import { isRelatedSection } from '../../utils'
 const props = defineProps({
     teacher: Object,
     periodId: [Number, String],
+    rowIndex: {
+        type: Number,
+        default: 0
+    },
     hoveredSection: Object,
     jumpPulseSectionId: [Number, String],
     jumpPulseVisible: Boolean
@@ -134,7 +138,7 @@ watch(() => props.hoveredSection, (newTarget) => {
                         </div>
 
                         <!-- Regular Section Card -->
-                        <SectionCard 
+                        <SectionCard
                             v-else
                             :section="section"
                             :current-teacher-id="teacher.teacherId"

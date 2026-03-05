@@ -101,6 +101,7 @@ const {
                     <ScheduleCell 
                         :teacher="slotProps.data" 
                         :period-id="p.coursePeriodId" 
+                        :row-index="slotProps.index ?? 0"
                         :hovered-section="effectiveHoveredSection"
                         :jump-pulse-section-id="jumpPulseSectionId"
                         :jump-pulse-visible="jumpPulseVisible"

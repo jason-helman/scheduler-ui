@@ -135,16 +135,21 @@ const onOverflowLeave = () => {
 watch(
     () => [props.items, props.collapseWrapped, props.size, props.shape, props.gapClass, props.maxRows],
     () => {
-        measureWrappedItems()
-    },
-    { deep: true }
+        if (props.collapseWrapped) {
+            measureWrappedItems()
+            return
+        }
+        measuredVisibleCount.value = null
+    }
 )
 
 onBeforeUpdate(() => {
+    if (!props.collapseWrapped) return
     measureItemEls.value = []
 })
 
 onMounted(() => {
+    if (!props.collapseWrapped) return
     measureWrappedItems()
     if (!containerEl.value) return
     resizeObserver = new ResizeObserver(() => measureWrappedItems())

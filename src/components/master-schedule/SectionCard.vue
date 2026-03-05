@@ -98,7 +98,8 @@ const recomputeBadgeRows = async () => {
 
     if (!bodyEl.value) return
 
-    const maxRows = Math.max(1, inlineBadges.value.length)
+    // Cap fit passes to avoid expensive multi-tick measurement on virtualized mounts.
+    const maxRows = Math.min(3, Math.max(1, inlineBadges.value.length))
     let fitRows = 1
 
     for (let rows = maxRows; rows >= 1; rows -= 1) {
