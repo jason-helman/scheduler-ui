@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, inject, nextTick, onMounted, ref, watch } from 'vue'
 
 import { useSectionBadges } from '../../composables/useSectionBadges'
 import { store } from '../../store'
@@ -17,12 +17,12 @@ const props = defineProps({
 
 const emit = defineEmits(['hover', 'leave', 'toggle-lock', 'jump-to-teacher', 'jump-to-section'])
 const showStudentsDialog = ref(false)
-const cardEl = ref(null)
 const bodyEl = ref(null)
 const badgeRowsToShow = ref(1)
 const measuredBadgeRows = ref(null)
 let badgeFitToken = 0
-let cardResizeObserver = null
+const isMasterGridScrolling = inject('master-grid-scroll-state', null)
+const masterBadgeFitEpoch = inject('master-grid-badge-fit-epoch', null)
 
 const scheduledStudentIds = computed(() => props.section.scheduledStudentIds || props.section.scheduled_student_ids || [])
 
@@ -90,6 +90,8 @@ const isJumpPulseActive = computed(() =>
 )
 
 const recomputeBadgeRows = async () => {
+    if (isMasterGridScrolling?.value) return
+
     const token = ++badgeFitToken
 
     if (store.isCompressed || useCompactBadgeOverlay.value || inlineBadges.value.length === 0) {
@@ -124,15 +126,6 @@ const recomputeBadgeRows = async () => {
 
 onMounted(() => {
     recomputeBadgeRows()
-    if (typeof ResizeObserver === 'undefined' || !cardEl.value) return
-    cardResizeObserver = new ResizeObserver(() => recomputeBadgeRows())
-    cardResizeObserver.observe(cardEl.value)
-})
-
-onBeforeUnmount(() => {
-    if (!cardResizeObserver) return
-    cardResizeObserver.disconnect()
-    cardResizeObserver = null
 })
 
 watch(
@@ -148,11 +141,29 @@ watch(
     }
 )
 
+if (isMasterGridScrolling) {
+    watch(
+        () => isMasterGridScrolling.value,
+        isScrolling => {
+            if (isScrolling) return
+            recomputeBadgeRows()
+        }
+    )
+}
+
+if (masterBadgeFitEpoch) {
+    watch(
+        () => masterBadgeFitEpoch.value,
+        () => {
+            recomputeBadgeRows()
+        }
+    )
+}
+
 </script>
 
 <template>
     <div
-         ref="cardEl"
          :data-section-id="section.sectionId"
          @mouseenter="emit('hover', section)"
          @mouseleave="emit('leave')"

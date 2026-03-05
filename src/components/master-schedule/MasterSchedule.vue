@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick, onBeforeUnmount, onMounted, provide, watch } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Message from 'primevue/message'
@@ -19,6 +19,14 @@ const showUnplacedDialog = ref(false)
 const selectedTeacherIdForUnplaced = ref(null)
 const tableRef = ref(null)
 const tableHostRef = ref(null)
+const isMasterGridScrolling = ref(false)
+const masterBadgeFitEpoch = ref(0)
+let gridScrollContainer = null
+let gridScrollIdleTimer = null
+let badgeFitRafId = null
+
+provide('master-grid-scroll-state', isMasterGridScrolling)
+provide('master-grid-badge-fit-epoch', masterBadgeFitEpoch)
 
 const { periods, scheduleData, rowItemSize, virtualScrollerOptions } = useMasterScheduleTableConfig({
     localDataset: computed(() => store.localDataset),
@@ -53,6 +61,67 @@ const {
     isCompressed: computed(() => store.isCompressed),
     isRelatedSection
 })
+
+const clearGridScrollIdleTimer = () => {
+    if (gridScrollIdleTimer == null) return
+    window.clearTimeout(gridScrollIdleTimer)
+    gridScrollIdleTimer = null
+}
+
+const onGridScroll = () => {
+    isMasterGridScrolling.value = true
+    clearGridScrollIdleTimer()
+    gridScrollIdleTimer = window.setTimeout(() => {
+        isMasterGridScrolling.value = false
+        gridScrollIdleTimer = null
+    }, 120)
+}
+
+const bindGridScrollContainer = () => {
+    const nextContainer = tableHostRef.value?.querySelector('.p-datatable-table-container') || null
+    if (nextContainer === gridScrollContainer) return
+    if (gridScrollContainer) {
+        gridScrollContainer.removeEventListener('scroll', onGridScroll)
+    }
+    gridScrollContainer = nextContainer
+    if (gridScrollContainer) {
+        gridScrollContainer.addEventListener('scroll', onGridScroll, { passive: true })
+    }
+}
+
+const requestBadgeFitRecompute = () => {
+    if (badgeFitRafId != null) cancelAnimationFrame(badgeFitRafId)
+    badgeFitRafId = requestAnimationFrame(() => {
+        badgeFitRafId = null
+        masterBadgeFitEpoch.value += 1
+    })
+}
+
+onMounted(() => {
+    nextTick(() => {
+        bindGridScrollContainer()
+        requestBadgeFitRecompute()
+    })
+    window.addEventListener('resize', requestBadgeFitRecompute)
+})
+
+watch(
+    () => [store.selectedVersion?.schedule_id ?? null, periods.value.length, store.isCompressed],
+    () => nextTick(() => {
+        bindGridScrollContainer()
+        requestBadgeFitRecompute()
+    })
+)
+
+onBeforeUnmount(() => {
+    if (gridScrollContainer) {
+        gridScrollContainer.removeEventListener('scroll', onGridScroll)
+        gridScrollContainer = null
+    }
+    clearGridScrollIdleTimer()
+    if (badgeFitRafId != null) cancelAnimationFrame(badgeFitRafId)
+    window.removeEventListener('resize', requestBadgeFitRecompute)
+})
 </script>
 
 <template>
@@ -75,7 +144,6 @@ const {
                 ref="tableRef"
                 :value="scheduleData"
                 :loading="store.loading"
-                stripedRows
                 scrollable
                 :scrollHeight="tableScrollHeight"
                 :virtualScrollerOptions="virtualScrollerOptions"
@@ -172,6 +240,19 @@ const {
     padding: 0 !important;
 }
 
+/* Stable fallback to prevent first-paint flashes during virtualized row recycle. */
+:deep(.p-datatable-tbody > tr) {
+    background-color: #ffffff !important;
+}
+
+:deep(.p-datatable-tbody > tr:nth-child(odd) > td) {
+    background-color: #ffffff !important;
+}
+
+:deep(.p-datatable-tbody > tr:nth-child(even) > td) {
+    background-color: #e2e8f0 !important;
+}
+
 :deep(.p-virtualscroller-content),
 :deep(.p-virtualscroller-spacer) {
     background-color: #ffffff !important;
@@ -195,6 +276,18 @@ const {
 .my-app-dark .master-table .p-virtualscroller-content,
 .my-app-dark .master-table .p-virtualscroller-spacer {
     background-color: #0f172a !important;
+}
+
+.my-app-dark .master-table .p-datatable-tbody > tr {
+    background-color: #111b2e !important;
+}
+
+.my-app-dark .master-table .p-datatable-tbody > tr:nth-child(odd) > td {
+    background-color: #111b2e !important;
+}
+
+.my-app-dark .master-table .p-datatable-tbody > tr:nth-child(even) > td {
+    background-color: #090f19 !important;
 }
 
 /* Master Schedule custom scrollbars */
