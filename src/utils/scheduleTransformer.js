@@ -13,7 +13,14 @@ export function transformScheduleData(localDataset) {
                 teacherId: t.teacherId,
                 unplacedSections: [],
                 periodRawSections: {},
-                restrictedCoursePeriods: t.restrictedCoursePeriods || []
+                restrictedCoursePeriods: t.restrictedCoursePeriods || [],
+                totalSections: 0,
+                totalStudents: 0,
+                placedSectionsCount: 0,
+                unplacedSectionsCount: 0,
+                roomIds: new Set(),
+                classroomNames: new Set(),
+                subjectCounts: new Map()
             }
         })
     }
@@ -40,7 +47,14 @@ export function transformScheduleData(localDataset) {
                     teacherId,
                     unplacedSections: [],
                     periodRawSections: {},
-                    restrictedCoursePeriods: []
+                    restrictedCoursePeriods: [],
+                    totalSections: 0,
+                    totalStudents: 0,
+                    placedSectionsCount: 0,
+                    unplacedSectionsCount: 0,
+                    roomIds: new Set(),
+                    classroomNames: new Set(),
+                    subjectCounts: new Map()
                 }
             })
 
@@ -53,14 +67,27 @@ export function transformScheduleData(localDataset) {
             }
 
             assignedTeacherIds.forEach(teacherId => {
+                const teacherEntry = teacherMap[teacherId]
+                const roomId = s.classroomId ?? s.classroom_id
+                const classroomName = (s.room_name || s.classroom_name || '').toString().trim()
+                const courseCode = (s.courseCode || s.course_code || s.course_name || 'Unknown').toString()
+
+                teacherEntry.totalSections += 1
+                teacherEntry.totalStudents += Number(s.student_count || 0)
+                teacherEntry.subjectCounts.set(courseCode, (teacherEntry.subjectCounts.get(courseCode) || 0) + 1)
+                if (roomId != null && roomId !== '') teacherEntry.roomIds.add(String(roomId))
+                if (classroomName) teacherEntry.classroomNames.add(classroomName)
+
                 if (!s.coursePeriodIds || s.coursePeriodIds.length === 0) {
-                    teacherMap[teacherId].unplacedSections.push(sectionData)
+                    teacherEntry.unplacedSections.push(sectionData)
+                    teacherEntry.unplacedSectionsCount += 1
                 } else if (Array.isArray(s.coursePeriodIds)) {
+                    teacherEntry.placedSectionsCount += 1
                     s.coursePeriodIds.forEach(pid => {
-                        if (!teacherMap[teacherId].periodRawSections[pid]) {
-                            teacherMap[teacherId].periodRawSections[pid] = []
+                        if (!teacherEntry.periodRawSections[pid]) {
+                            teacherEntry.periodRawSections[pid] = []
                         }
-                        teacherMap[teacherId].periodRawSections[pid].push(sectionData)
+                        teacherEntry.periodRawSections[pid].push(sectionData)
                     })
                 }
             })
@@ -108,8 +135,37 @@ export function transformScheduleData(localDataset) {
             })
             periodLayers[`period_${pid}`] = layers.map(l => l.sort((a, b) => a.startQ - b.startQ))
         })
+
+        const placementPct = teacher.totalSections > 0
+            ? Math.round((teacher.placedSectionsCount / teacher.totalSections) * 100)
+            : 100
+        const sortedSubjectEntries = Array.from(teacher.subjectCounts.entries())
+            .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]))
+        const subjectMix = sortedSubjectEntries
+            .slice(0, 2)
+            .map(([subject, count]) => ({ subject, count }))
+        const subjectList = sortedSubjectEntries
+            .map(([subject, count]) => `${subject}${count > 1 ? ` (${count})` : ''}`)
+            .join(', ')
+        const classroomList = Array.from(teacher.classroomNames.values())
+            .sort((a, b) => a.localeCompare(b))
+            .join(', ')
+
         return {
             ...teacher,
+            summary: {
+                sections: teacher.totalSections,
+                students: teacher.totalStudents,
+                placed: teacher.placedSectionsCount,
+                unplaced: teacher.unplacedSectionsCount,
+                placementPct,
+                roomDiversity: teacher.roomIds.size,
+                classroomCount: teacher.roomIds.size,
+                classroomList,
+                subjectMix,
+                subjectCount: teacher.subjectCounts.size,
+                subjectList
+            },
             periodLayers
         }
     })

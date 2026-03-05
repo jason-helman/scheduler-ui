@@ -183,7 +183,7 @@ const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.le
                     v-for="badge in compactBadgeLabels"
                     :key="badge.key"
                     :class="[
-                        'px-1.5 py-0.5 rounded-full text-[7px] leading-none font-black uppercase tracking-wider',
+                        'px-1.5 py-0.5 rounded-full text-[7px] leading-none font-black uppercase tracking-wider select-none cursor-default',
                         badge.tone === 'slate' ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300' : '',
                         badge.tone === 'teal' ? 'bg-teal-100/80 dark:bg-teal-900/30 text-teal-600 dark:text-teal-300' : '',
                         badge.tone === 'emerald' ? 'bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300' : '',
@@ -232,13 +232,13 @@ const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.le
                     <div class="flex flex-wrap gap-1">
                         <span
                             v-if="section.quarters"
-                            class="px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300"
+                            class="px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 select-none cursor-default"
                         >
                             Q {{ section.quarters }}
                         </span>
                         <span
                             v-if="section.days"
-                            class="px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300"
+                            class="px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300 select-none cursor-default"
                         >
                             D {{ section.days }}
                         </span>
@@ -246,7 +246,7 @@ const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.le
                             v-for="flag in quickFlags"
                             :key="flag.key"
                             :class="[
-                                'px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider',
+                                'px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider select-none cursor-default',
                                 flag.tone === 'teal' ? 'bg-teal-100/80 dark:bg-teal-900/30 text-teal-600 dark:text-teal-300' : '',
                                 flag.tone === 'emerald' ? 'bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300' : '',
                                 flag.tone === 'orange' ? 'bg-orange-100/80 dark:bg-orange-900/30 text-orange-600 dark:text-orange-300' : '',
@@ -273,7 +273,7 @@ const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.le
                     </div>
 
                     <div v-if="coTeachers.length > 0" class="flex flex-wrap gap-1 items-center">
-                    <span :class="['font-black uppercase tracking-wider text-teal-500 dark:text-teal-300', store.isCompressed ? 'text-[6px]' : 'text-[7px]']">With</span>
+                    <span :class="['font-black uppercase tracking-wider text-teal-500 dark:text-teal-300 select-none cursor-default', store.isCompressed ? 'text-[6px]' : 'text-[7px]']">With</span>
                     <button
                         v-for="ct in coTeachers"
                         :key="ct.teacherId"
