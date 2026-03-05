@@ -46,7 +46,7 @@ const virtualScrollerOptions = computed(() => ({
 const openUnplacedSections = (teacher) => {
     if (teacher.unplacedSections && teacher.unplacedSections.length > 0) {
         selectedTeacherIdForUnplaced.value = teacher.teacherId
-        showUnplacedDialog = true
+        showUnplacedDialog.value = true
     }
 }
 

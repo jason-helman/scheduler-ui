@@ -19,18 +19,33 @@ const showDialog = computed({
 
 const teacher = computed(() => {
     if (!props.teacherId || !store.localDataset) return null
+    const targetTeacherId = String(props.teacherId)
     
     // We need to re-derive the teacher data because the prop might just be an ID
     // or we can just find it in the already computed scheduleData from parent if we pass it,
     // but here we can just find the teacher in the store.
-    const t = (store.localDataset.teachers || []).find(t => t.teacherId === props.teacherId)
-    if (!t) return null
+    const t = (store.localDataset.teachers || []).find(t => String(t.teacherId) === targetTeacherId)
 
     const unplacedSections = (store.localDataset.sections || [])
-        .filter(s => s.teacherId === props.teacherId && (!s.coursePeriodIds || s.coursePeriodIds.length === 0))
+        .filter(s => {
+            if (s.coursePeriodIds && s.coursePeriodIds.length > 0) return false
+
+            const sectionTeacherIds = new Set(
+                [
+                    s.teacherId,
+                    s.teacher_id,
+                    ...(Array.isArray(s.teacherIds) ? s.teacherIds : []),
+                    ...(Array.isArray(s.teacher_ids) ? s.teacher_ids : [])
+                ]
+                    .filter(id => id != null)
+                    .map(id => String(id))
+            )
+
+            return sectionTeacherIds.has(targetTeacherId)
+        })
 
     return {
-        ...t,
+        ...(t || { teacherId: props.teacherId, name: `Teacher ${props.teacherId}` }),
         unplacedSections
     }
 })
