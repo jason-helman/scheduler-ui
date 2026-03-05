@@ -5,6 +5,7 @@ import Button from 'primevue/button'
 import Menu from 'primevue/menu'
 import CopyButton from './CopyButton.vue'
 import { store } from '../store'
+import { api } from '../services/api'
 
 const actionMenu = ref(null)
 const actionItems = ref([
@@ -51,8 +52,10 @@ const fetchData = async () => {
     store.error = null
     store.diagnostics = null
     try {
-        const res = await fetch(`/api/full-dataset?schoolId=${store.selectedSchool.school_id}&svId=${store.selectedVersion.schedule_version_id}`)
-        store.localDataset = await res.json()
+        store.localDataset = await api.fetchFullDataset(
+            store.selectedSchool.school_id, 
+            store.selectedVersion.schedule_version_id
+        )
     } catch (e) {
         store.error = "Failed to fetch dataset: " + e.message
     } finally {
@@ -66,38 +69,30 @@ const runPlacement = async () => {
     store.loading = true
     store.error = null
     try {
-        const res = await fetch('/api/place-sections', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dataset: store.localDataset })
+        const result = await api.runSectionPlacement(store.localDataset)
+        
+        // Merge placement results into existing local dataset to preserve names and other metadata
+        const placementMap = {}
+        result.sections.forEach(ps => {
+            placementMap[ps.section_id] = ps
         })
-        const result = await res.json()
-        if (result.error) {
-            store.error = result.error
-        } else {
-            // Merge placement results into existing local dataset to preserve names and other metadata
-            const placementMap = {}
-            result.sections.forEach(ps => {
-                placementMap[ps.section_id] = ps
-            })
-            
-            store.localDataset.sections = store.localDataset.sections.map(s => {
-                const ps = placementMap[s.sectionId]
-                if (ps) {
-                    return {
-                        ...s,
-                        classroomId: ps.classroom_id,
-                        room_name: ps.room_name || s.room_name,
-                        coursePeriodIds: ps.course_period_ids || [],
-                        quartersDays: ps.quarters_days,
-                        quarters: ps.quarters || s.quarters,
-                        days: ps.days || s.days
-                    }
+        
+        store.localDataset.sections = store.localDataset.sections.map(s => {
+            const ps = placementMap[s.sectionId]
+            if (ps) {
+                return {
+                    ...s,
+                    classroomId: ps.classroom_id,
+                    room_name: ps.room_name || s.room_name,
+                    coursePeriodIds: ps.course_period_ids || [],
+                    quartersDays: ps.quarters_days,
+                    quarters: ps.quarters || s.quarters,
+                    days: ps.days || s.days
                 }
-                return s
-            })
-            store.diagnostics = result.diagnostics
-        }
+            }
+            return s
+        })
+        store.diagnostics = result.diagnostics
     } catch (e) {
         store.error = "Failed to run placement: " + e.message
     } finally {
@@ -134,8 +129,7 @@ const clearPlacements = () => {
 
 const fetchSchools = async () => {
     try {
-        const res = await fetch('/api/schools')
-        store.schools = await res.json()
+        store.schools = await api.fetchSchools()
     } catch (e) {
         store.error = "Failed to fetch schools: " + e.message
     }
@@ -144,8 +138,7 @@ const fetchSchools = async () => {
 const fetchVersions = async () => {
     if (!store.selectedSchool) return
     try {
-        const res = await fetch(`/api/versions?schoolId=${store.selectedSchool.school_id}`)
-        store.versions = await res.json()
+        store.versions = await api.fetchVersions(store.selectedSchool.school_id)
         store.selectedVersion = null
     } catch (e) {
         store.error = "Failed to fetch versions: " + e.message

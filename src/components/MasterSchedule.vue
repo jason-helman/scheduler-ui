@@ -8,6 +8,7 @@ import ScheduleSelector from './ScheduleSelector.vue'
 import UnplacedSectionsDialog from './UnplacedSectionsDialog.vue'
 import ScheduleCell from './ScheduleCell.vue'
 import { store } from '../store'
+import { transformScheduleData, transformPeriods } from '../utils/scheduleTransformer'
 
 const showUnplacedDialog = ref(false)
 const selectedTeacherIdForUnplaced = ref(null)
@@ -23,123 +24,10 @@ const formatTime = (timeStr) => {
 }
 
 // Periods derived from local dataset
-const periods = computed(() => {
-    if (!store.localDataset || !store.localDataset.scheduleStructure) return []
-    const periodMap = {}
-    store.localDataset.scheduleStructure.forEach(ss => {
-        if (!periodMap[ss.coursePeriodId]) {
-            periodMap[ss.coursePeriodId] = {
-                coursePeriodId: ss.coursePeriodId,
-                name: ss.name || `P${ss.coursePeriodId}`,
-                startTime: ss.startTime,
-                endTime: ss.endTime
-            }
-        }
-    })
-    return Object.values(periodMap).sort((a, b) => a.coursePeriodId - b.coursePeriodId)
-})
+const periods = computed(() => transformPeriods(store.localDataset?.scheduleStructure))
 
 // Transform raw sections from local dataset into the teacher-grouped view with intelligent layers
-const scheduleData = computed(() => {
-    if (!store.localDataset) return []
-    
-    const teacherMap = {}
-
-    // Initialize teacher map from teachers list if available to include those without sections and capture restrictions
-    if (store.localDataset.teachers) {
-        store.localDataset.teachers.forEach(t => {
-            teacherMap[t.teacherId] = {
-                teacherName: t.name,
-                teacherId: t.teacherId,
-                unplacedSections: [],
-                periodRawSections: {},
-                restrictedCoursePeriods: t.restrictedCoursePeriods || []
-            }
-        })
-    }
-
-    if (store.localDataset.sections) {
-        store.localDataset.sections.forEach(s => {
-            if (!teacherMap[s.teacherId]) {
-                teacherMap[s.teacherId] = {
-                    teacherName: s.teacher_name,
-                    teacherId: s.teacherId,
-                    unplacedSections: [],
-                    periodRawSections: {},
-                    restrictedCoursePeriods: []
-                }
-            }
-            
-            const qArray = s.quarters ? s.quarters.split(',').map(n => parseInt(n)) : [1, 2, 3, 4]
-            const sectionData = {
-                ...s,
-                startQ: qArray.length ? Math.min(...qArray) : 1,
-                endQ: qArray.length ? Math.max(...qArray) : 4,
-                quarterCount: qArray.length
-            }
-            
-            if (!s.coursePeriodIds || s.coursePeriodIds.length === 0) {
-                teacherMap[s.teacherId].unplacedSections.push(sectionData)
-            } else if (Array.isArray(s.coursePeriodIds)) {
-                s.coursePeriodIds.forEach(pid => {
-                    if (!teacherMap[s.teacherId].periodRawSections[pid]) {
-                        teacherMap[s.teacherId].periodRawSections[pid] = []
-                    }
-                    teacherMap[s.teacherId].periodRawSections[pid].push(sectionData)
-                })
-            }
-        })
-    }
-
-    const result = Object.values(teacherMap).map(teacher => {
-        const periodLayers = {}
-        
-        // Add restrictions to raw sections for layer processing
-        teacher.restrictedCoursePeriods.forEach(pid => {
-            if (!teacher.periodRawSections[pid]) {
-                teacher.periodRawSections[pid] = []
-            }
-            teacher.periodRawSections[pid].push({
-                sectionId: `restriction-${teacher.teacherId}-${pid}`,
-                isRestriction: true,
-                startQ: 1,
-                endQ: 4,
-                quarterCount: 4,
-                course_name: 'RESTRICTED'
-            })
-        })
-
-        Object.entries(teacher.periodRawSections).forEach(([pid, sections]) => {
-            const sorted = [...sections].sort((a, b) => {
-                // Restrictions always go last in the processing order to ensure they end up in the final layer
-                if (a.isRestriction !== b.isRestriction) {
-                    return a.isRestriction ? 1 : -1
-                }
-                return (b.quarterCount - a.quarterCount) || (a.startQ - b.startQ)
-            })
-            const layers = []
-            sorted.forEach(s => {
-                let placed = false
-                for (let layer of layers) {
-                    const hasOverlap = layer.some(ls => !(s.endQ < ls.startQ || ls.endQ < s.startQ))
-                    if (!hasOverlap) {
-                        layer.push(s)
-                        placed = true
-                        break
-                    }
-                }
-                if (!placed) layers.push([s])
-            })
-            periodLayers[`period_${pid}`] = layers.map(l => l.sort((a, b) => a.startQ - b.startQ))
-        })
-        return {
-            ...teacher,
-            periodLayers
-        }
-    })
-
-    return result.sort((a, b) => a.teacherName.localeCompare(b.teacherName))
-})
+const scheduleData = computed(() => transformScheduleData(store.localDataset))
 
 const openUnplacedSections = (teacher) => {
     if (teacher.unplacedSections && teacher.unplacedSections.length > 0) {
