@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { store } from '../store'
 import Dialog from 'primevue/dialog'
 import CopyButton from './CopyButton.vue'
-import BadgeChip from './BadgeChip.vue'
+import BadgeList from './BadgeList.vue'
 import { getCourseByIdMap, getHighlightClass, getStudentByIdMap } from '../utils/scheduleHelpers'
 
 const props = defineProps({
@@ -94,6 +94,13 @@ const compactBadgeLabels = computed(() => {
     quickFlags.value.forEach(flag => badges.push({ key: flag.key, label: flag.label, tone: flag.tone }))
     return badges
 })
+const inlineBadges = computed(() => {
+    const badges = []
+    if (props.section.quarters) badges.push({ key: 'q', label: `Q ${props.section.quarters}`, tone: 'slate' })
+    if (props.section.days) badges.push({ key: 'd', label: `D ${props.section.days}`, tone: 'emerald' })
+    quickFlags.value.forEach(flag => badges.push({ key: flag.key, label: flag.label, tone: flag.tone }))
+    return badges
+})
 
 const compactBadgeCount = computed(() => compactBadgeLabels.value.length)
 const sectionQuarterCount = computed(() => {
@@ -139,6 +146,16 @@ const coTeachers = computed(() => {
             name: teacherNameById.value.get(id) || `Teacher ${id}`
         }))
 })
+const coTeacherBadgeItems = computed(() =>
+    coTeachers.value.map(ct => ({
+        key: ct.teacherId,
+        label: ct.name,
+        tone: 'teal',
+        tooltip: `Jump to ${ct.name}`,
+        clickable: true,
+        payload: ct.teacherId
+    }))
+)
 
 const previewStudents = computed(() => scheduledStudents.value.slice(0, 2))
 const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.length - previewStudents.value.length))
@@ -180,28 +197,11 @@ const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.le
             class="absolute top-4 left-2 right-2 z-30 opacity-0 translate-y-1 group-hover/segment:opacity-100 group-hover/segment:translate-y-0 transition-all duration-150 pointer-events-auto"
         >
             <div class="rounded-md border border-slate-200/80 dark:border-slate-700/80 bg-white/95 dark:bg-slate-900/95 shadow-sm p-1 flex flex-wrap gap-1">
-                <BadgeChip
-                    v-for="badge in compactBadgeLabels"
-                    :key="badge.key"
-                    :label="badge.label"
-                    :tone="badge.tone"
-                    size="xs"
-                    shape="pill"
-                >
-                </BadgeChip>
-                <BadgeChip
-                    v-for="ct in coTeachers"
-                    :key="'compact-co-' + ct.teacherId"
-                    :label="ct.name"
-                    tone="teal"
-                    size="xs"
-                    shape="pill"
-                    :as-button="true"
-                    :interactive="true"
-                    :tooltip="`Jump to ${ct.name}`"
-                    @click="emit('jump-to-teacher', ct.teacherId)"
-                >
-                </BadgeChip>
+                <BadgeList :items="compactBadgeLabels" />
+                <BadgeList
+                    :items="coTeacherBadgeItems"
+                    @item-click="item => emit('jump-to-teacher', item.payload)"
+                />
             </div>
         </div>
 
@@ -225,33 +225,7 @@ const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.le
             </div>
             
             <div v-if="!store.isCompressed || !useCompactBadgeOverlay" class="space-y-1.5 mt-1 mb-1.5 shrink-0">
-                    <div class="flex flex-wrap gap-1">
-                        <BadgeChip
-                            v-if="section.quarters"
-                            :label="`Q ${section.quarters}`"
-                            tone="slate"
-                            size="xs"
-                            shape="pill"
-                        >
-                        </BadgeChip>
-                        <BadgeChip
-                            v-if="section.days"
-                            :label="`D ${section.days}`"
-                            tone="emerald"
-                            size="xs"
-                            shape="pill"
-                        >
-                        </BadgeChip>
-                        <BadgeChip
-                            v-for="flag in quickFlags"
-                            :key="flag.key"
-                            :label="flag.label"
-                            :tone="flag.tone"
-                            size="xs"
-                            shape="pill"
-                        >
-                        </BadgeChip>
-                    </div>
+                    <BadgeList :items="inlineBadges" />
 
                     <div v-if="!store.isCompressed" class="flex items-center justify-between text-[7px] font-bold">
                         <span class="text-slate-400 dark:text-slate-500 uppercase tracking-wider">Seats</span>
@@ -267,19 +241,11 @@ const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.le
 
                     <div v-if="coTeachers.length > 0" class="flex flex-wrap gap-1 items-center">
                     <span :class="['font-black uppercase tracking-wider text-teal-500 dark:text-teal-300 select-none cursor-default', store.isCompressed ? 'text-[6px]' : 'text-[7px]']">With</span>
-                    <BadgeChip
-                        v-for="ct in coTeachers"
-                        :key="ct.teacherId"
-                        :label="ct.name"
-                        tone="teal"
-                        :size="store.isCompressed ? 'xs' : 'xs'"
+                    <BadgeList
+                        :items="coTeacherBadgeItems"
                         shape="rounded"
-                        :as-button="true"
-                        :interactive="true"
-                        :tooltip="`Jump to ${ct.name}`"
-                        @click="emit('jump-to-teacher', ct.teacherId)"
-                    >
-                    </BadgeChip>
+                        @item-click="item => emit('jump-to-teacher', item.payload)"
+                    />
                     </div>
                     <div v-if="!store.isCompressed" class="space-y-0.5">
                         <div
