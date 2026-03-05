@@ -3,11 +3,11 @@ import { ref, computed } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Message from 'primevue/message'
-import CopyButton from './CopyButton.vue'
 import ScheduleSelector from './ScheduleSelector.vue'
 import UnplacedSectionsDialog from './UnplacedSectionsDialog.vue'
 import ScheduleCell from './ScheduleCell.vue'
 import TeacherSummaryCell from './TeacherSummaryCell.vue'
+import PeriodHeaderCell from './PeriodHeaderCell.vue'
 import { store } from '../store'
 import { transformScheduleData, transformPeriods } from '../utils/scheduleTransformer'
 import { isRelatedSection } from '../utils/scheduleHelpers'
@@ -18,15 +18,6 @@ const showUnplacedDialog = ref(false)
 const selectedTeacherIdForUnplaced = ref(null)
 const tableRef = ref(null)
 const tableHostRef = ref(null)
-
-const formatTime = (timeStr) => {
-    if (!timeStr) return ''
-    const [h, m] = timeStr.split(':')
-    const hours = parseInt(h)
-    const suffix = hours >= 12 ? 'pm' : 'am'
-    const displayHours = ((hours + 11) % 12 + 1).toString().padStart(2, '0')
-    return `${displayHours}:${m}${suffix}`
-}
 
 // Periods derived from local dataset
 const periods = computed(() => transformPeriods(store.localDataset?.scheduleStructure))
@@ -111,15 +102,7 @@ const {
             </Column>
             <Column v-for="p in periods" :key="p.coursePeriodId" class="text-gray-900 dark:text-gray-100 align-top" :style="{ minWidth: store.isCompressed ? '160px' : '200px', width: 'auto' }">
                 <template #header>
-                    <div class="flex flex-col items-center w-full group/period">
-                        <div class="flex items-center gap-2">
-                            <span :class="['font-black', store.isCompressed ? 'text-[10px]' : 'text-[11px]']">{{ p.name }}</span>
-                            <CopyButton v-if="store.showIds && p.coursePeriodId != null" :value="p.coursePeriodId" label="Period ID" />
-                        </div>
-                        <span v-if="p.startTime" :class="['font-bold opacity-60 tracking-normal normal-case mt-0.5', store.isCompressed ? 'text-[8px]' : 'text-[9px]']">
-                            {{ formatTime(p.startTime) }} - {{ formatTime(p.endTime) }}
-                        </span>
-                    </div>
+                    <PeriodHeaderCell :period="p" :show-ids="store.showIds" :is-compressed="store.isCompressed" />
                 </template>
                 <template #body="slotProps">
                     <ScheduleCell 
