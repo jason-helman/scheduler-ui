@@ -53,9 +53,11 @@ export default defineConfig({
             fetchTable('course_periods', 'school_id = ? AND schedule_version_id = ? AND is_deleted = 0', [schoolId, svId])
           ]);
 
-          const [courseOptions, classroomDepts, teacherPeriods, studentOptions, sectionCoursePeriods, sectionsQuarterDay, studentSchedules, sectionSpans, subsections, sectionSecondaryTeachers] = await Promise.all([
+          const [courseOptions, classroomDepts, courseDepts, teacherDepts, teacherPeriods, studentOptions, sectionCoursePeriods, sectionsQuarterDay, studentSchedules, sectionSpans, subsections, sectionSecondaryTeachers] = await Promise.all([
             fetchTable('course_options', 'school_id = ? AND schedule_version_id = ?', [schoolId, svId]),
             fetchTable('data_departments', 'school_id = ? AND schedule_version_id = ? AND data_type = 1 AND is_deleted = 0', [schoolId, svId]),
+            fetchTable('data_departments', 'school_id = ? AND schedule_version_id = ? AND data_type = 2 AND is_deleted = 0', [schoolId, svId]),
+            fetchTable('data_departments', 'school_id = ? AND schedule_version_id = ? AND data_type = 4 AND is_deleted = 0', [schoolId, svId]),
             fetchTable('teacher_period_restrictions', 'school_id = ? AND schedule_version_id = ? AND is_deleted = 0', [schoolId, svId]),
             fetchTable('student_options', 'school_id = ? AND schedule_version_id = ?', [schoolId, svId]),
             fetchTable('section_course_periods', 'school_id = ? AND schedule_version_id = ?', [schoolId, svId]),
@@ -77,7 +79,7 @@ export default defineConfig({
                 courseCode: c.course_code,
                 capacity: opt?.capacity || 25,
                 priority: opt?.priority || 10,
-                departments: [],
+                departments: courseDepts.filter(d => d.data_id === c.course_id).map(d => d.department_id),
                 quarterLength: QUARTER_GROUPS[opt?.quarter_length] || QUARTER_GROUPS.FY,
                 spanLength: opt?.span_length || 1,
                 allowInclusion: !!opt?.allow_icr_students,
@@ -93,6 +95,7 @@ export default defineConfig({
             teachers: teachers.map(t => ({
               teacherId: t.teacher_id,
               name: formatTeacherName(t),
+              departments: teacherDepts.filter(d => d.data_id === t.teacher_id).map(d => d.department_id),
               restrictedCoursePeriods: teacherPeriods.filter(r => r.teacher_id === t.teacher_id).map(r => r.course_period_id)
             })),
             students: students.map(s => {

@@ -185,6 +185,18 @@ onBeforeUnmount(() => {
                         </div>
 
                         <div class="text-[8px] font-bold text-gray-500 dark:text-gray-400 leading-tight">
+                            <span class="uppercase tracking-wider">Departments:</span>
+                            <BadgeChip
+                                class="ml-1"
+                                :label="`${slotProps.data.summary?.departmentCount ?? 0}`"
+                                tone="slate"
+                                size="sm"
+                                shape="rounded"
+                                :tooltip="slotProps.data.summary?.departmentList || 'No departments'"
+                            />
+                        </div>
+
+                        <div class="text-[8px] font-bold text-gray-500 dark:text-gray-400 leading-tight">
                             <span class="uppercase tracking-wider">Subjects:</span>
                             <BadgeChip
                                 class="ml-1"

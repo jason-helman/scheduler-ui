@@ -20,6 +20,7 @@ export function transformScheduleData(localDataset) {
                 unplacedSectionsCount: 0,
                 roomIds: new Set(),
                 classroomNames: new Set(),
+                departmentIds: new Set((t.departments || []).map(String)),
                 subjectCounts: new Map()
             }
         })
@@ -54,6 +55,7 @@ export function transformScheduleData(localDataset) {
                     unplacedSectionsCount: 0,
                     roomIds: new Set(),
                     classroomNames: new Set(),
+                    departmentIds: new Set(),
                     subjectCounts: new Map()
                 }
             })
@@ -150,6 +152,9 @@ export function transformScheduleData(localDataset) {
         const classroomList = Array.from(teacher.classroomNames.values())
             .sort((a, b) => a.localeCompare(b))
             .join(', ')
+        const departmentList = Array.from(teacher.departmentIds.values())
+            .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }))
+            .join(', ')
 
         return {
             ...teacher,
@@ -162,6 +167,8 @@ export function transformScheduleData(localDataset) {
                 roomDiversity: teacher.roomIds.size,
                 classroomCount: teacher.roomIds.size,
                 classroomList,
+                departmentCount: teacher.departmentIds.size,
+                departmentList,
                 subjectMix,
                 subjectCount: teacher.subjectCounts.size,
                 subjectList
