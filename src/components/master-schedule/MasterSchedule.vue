@@ -9,8 +9,8 @@ import ScheduleCell from './ScheduleCell.vue'
 import TeacherSummaryCell from './TeacherSummaryCell.vue'
 import PeriodHeaderCell from './PeriodHeaderCell.vue'
 import { store } from '../../store'
-import { transformScheduleData, transformPeriods } from '../../utils/scheduleTransformer'
 import { isRelatedSection } from '../../utils/scheduleHelpers'
+import { useMasterScheduleTableConfig } from '../../composables/useMasterScheduleTableConfig'
 import { useSectionNavigation } from '../../composables/useSectionNavigation'
 import { useViewportTableHeight } from '../../composables/useViewportTableHeight'
 
@@ -19,18 +19,10 @@ const selectedTeacherIdForUnplaced = ref(null)
 const tableRef = ref(null)
 const tableHostRef = ref(null)
 
-// Periods derived from local dataset
-const periods = computed(() => transformPeriods(store.localDataset?.scheduleStructure))
-
-// Transform raw sections from local dataset into the teacher-grouped view with intelligent layers
-const scheduleData = computed(() => transformScheduleData(store.localDataset))
-const rowItemSize = computed(() => (store.isCompressed ? 264 : 354))
-const virtualScrollerOptions = computed(() => ({
-    itemSize: rowItemSize.value,
-    numToleratedItems: 16,
-    delay: 30,
-    showLoader: false
-}))
+const { periods, scheduleData, rowItemSize, virtualScrollerOptions } = useMasterScheduleTableConfig({
+    localDataset: computed(() => store.localDataset),
+    isCompressed: computed(() => store.isCompressed)
+})
 
 const openUnplacedSections = (teacher) => {
     if (teacher.unplacedSections && teacher.unplacedSections.length > 0) {
