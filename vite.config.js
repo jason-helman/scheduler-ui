@@ -23,6 +23,13 @@ export default defineConfig({
         });
 
         async function getRawDataset(schoolId, svId) {
+          const formatTeacherName = (teacherRow) => {
+            const lastName = (teacherRow?.name || '').toString().trim();
+            const firstName = (teacherRow?.first_name || teacherRow?.firstname || teacherRow?.firstName || '').toString().trim();
+            if (lastName && firstName) return `${lastName}, ${firstName}`;
+            return lastName || firstName || 'Unknown Teacher';
+          };
+
           const [[version]] = await pool.execute('SELECT data_version_id FROM schedule_versions WHERE schedule_version_id = ?', [svId]);
           const dvId = version?.data_version_id;
 
@@ -85,7 +92,7 @@ export default defineConfig({
             })),
             teachers: teachers.map(t => ({
               teacherId: t.teacher_id,
-              name: t.name,
+              name: formatTeacherName(t),
               restrictedCoursePeriods: teacherPeriods.filter(r => r.teacher_id === t.teacher_id).map(r => r.course_period_id)
             })),
             students: students.map(s => {
@@ -157,7 +164,7 @@ export default defineConfig({
                 // UI helper fields (not strictly in RawSection but useful for UI state)
                 course_name: course?.name || 'Unknown Course',
                 courseCode: course?.course_code || 'N/A',
-                teacher_name: teacher?.name || 'Unknown Teacher',
+                teacher_name: formatTeacherName(teacher),
                 room_name: room?.classroom_name || 'N/A',
                 student_count: scheduledStudentIds.length,
                 scheduledStudentIds,

@@ -149,7 +149,7 @@ onBeforeUnmount(() => {
                     <div
                         :id="`teacher-row-${slotProps.data.teacherId}`"
                         :class="[
-                            'flex flex-col gap-1 py-1 rounded transition-colors duration-150',
+                            'flex flex-col gap-1 py-1 px-1.5 rounded transition-colors duration-150',
                             Number(highlightedTeacherId) === Number(slotProps.data.teacherId) ? 'bg-yellow-100/80 dark:bg-yellow-900/40' : ''
                         ]"
                     >
@@ -273,5 +273,48 @@ onBeforeUnmount(() => {
 .my-app-dark .master-table .p-virtualscroller-content,
 .my-app-dark .master-table .p-virtualscroller-spacer {
     background-color: #0f172a !important;
+}
+
+/* Master Schedule custom scrollbars */
+.master-table .p-datatable-table-container {
+    scrollbar-width: thin;
+    scrollbar-color: #94a3b8 #f1f5f9;
+}
+
+.master-table .p-datatable-table-container::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.master-table .p-datatable-table-container::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 999px;
+}
+
+.master-table .p-datatable-table-container::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #94a3b8, #64748b);
+    border-radius: 999px;
+    border: 2px solid #f1f5f9;
+}
+
+.master-table .p-datatable-table-container::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #64748b, #475569);
+}
+
+.my-app-dark .master-table .p-datatable-table-container {
+    scrollbar-color: #475569 #0f172a;
+}
+
+.my-app-dark .master-table .p-datatable-table-container::-webkit-scrollbar-track {
+    background: #0f172a;
+}
+
+.my-app-dark .master-table .p-datatable-table-container::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #475569, #334155);
+    border: 2px solid #0f172a;
+}
+
+.my-app-dark .master-table .p-datatable-table-container::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #64748b, #475569);
 }
 </style>
