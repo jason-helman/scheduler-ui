@@ -1,6 +1,7 @@
 <script setup>
 import { store } from '../store'
 import CopyButton from './CopyButton.vue'
+import { getHighlightClass } from '../utils/scheduleHelpers'
 
 const props = defineProps({
     section: Object,
@@ -8,28 +9,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['hover', 'leave', 'toggle-lock'])
-
-const getHighlightClass = (section, target) => {
-    if (!target) return ''
-    
-    const isRelated = section.sectionId === target.sectionId || (target.spanId && section.spanId === target.spanId)
-
-    if (isRelated) {
-        return section.isLab ? 'highlight-lab' : 'highlight-primary'
-    }
-    
-    // Subsection: Parent, child, or sibling relationship
-    const isSubsectionRel = 
-        section.parentSectionId === target.sectionId || 
-        target.parentSectionId === section.sectionId ||
-        (target.parentSectionId && section.parentSectionId === target.parentSectionId)
-        
-    if (isSubsectionRel) {
-        return 'highlight-subsection'
-    }
-    
-    return ''
-}
 </script>
 
 <template>

@@ -1,7 +1,8 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import Button from 'primevue/button'
 import SectionCard from './SectionCard.vue'
+import { isRelatedSection } from '../utils/scheduleHelpers'
 
 const props = defineProps({
     teacher: Object,
@@ -11,21 +12,44 @@ const props = defineProps({
 
 const emit = defineEmits(['hover', 'leave', 'toggle-lock'])
 
+const userSelectedLayerIndex = ref(0)
 const currentLayerIndex = ref(0)
 
 const layers = computed(() => {
     return props.teacher.periodLayers?.['period_' + props.periodId] || []
 })
 
-const getLayerIndex = () => currentLayerIndex.value
-
 const nextLayer = (total) => {
-    currentLayerIndex.value = (currentLayerIndex.value + 1) % total
+    userSelectedLayerIndex.value = (userSelectedLayerIndex.value + 1) % total
+    currentLayerIndex.value = userSelectedLayerIndex.value
 }
 
 const prevLayer = (total) => {
-    currentLayerIndex.value = (currentLayerIndex.value - 1 + total) % total
+    userSelectedLayerIndex.value = (userSelectedLayerIndex.value - 1 + total) % total
+    currentLayerIndex.value = userSelectedLayerIndex.value
 }
+
+// Watch for hover changes to temporarily switch layers
+watch(() => props.hoveredSection, (newTarget) => {
+    if (!newTarget) {
+        currentLayerIndex.value = userSelectedLayerIndex.value
+        return
+    }
+
+    // Check if any layer contains a related section
+    for (let i = 0; i < layers.value.length; i++) {
+        const layer = layers.value[i]
+        const hasRelated = layer.some(section => isRelatedSection(section, newTarget))
+        
+        if (hasRelated) {
+            currentLayerIndex.value = i
+            return
+        }
+    }
+    
+    // If no related section found in any layer, stay on user's selected layer
+    currentLayerIndex.value = userSelectedLayerIndex.value
+})
 </script>
 
 <template>
