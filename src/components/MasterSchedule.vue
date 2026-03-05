@@ -32,7 +32,7 @@ const scheduleData = computed(() => transformScheduleData(store.localDataset))
 const openUnplacedSections = (teacher) => {
     if (teacher.unplacedSections && teacher.unplacedSections.length > 0) {
         selectedTeacherIdForUnplaced.value = teacher.teacherId
-        showUnplacedDialog.value = true
+        showUnplacedDialog = true
     }
 }
 </script>
@@ -45,22 +45,22 @@ const openUnplacedSections = (teacher) => {
     <Message v-if="store.error" severity="error" class="shadow-sm">{{ store.error }}</Message>
 
     <!-- Data Table Card -->
-    <div class="card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div class="flex items-center justify-between mb-6 px-2">
-            <h2 class="text-3xl font-black tracking-tight text-gray-900 dark:text-white">Master Schedule</h2>
+    <div :class="['card bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-all duration-300', store.isCompressed ? 'p-3' : 'p-6']">
+        <div :class="['flex items-center justify-between px-2', store.isCompressed ? 'mb-3' : 'mb-6']">
+            <h2 :class="['font-black tracking-tight text-gray-900 dark:text-white transition-all', store.isCompressed ? 'text-xl' : 'text-3xl']">Master Schedule</h2>
             <div v-if="store.selectedVersion" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-xs font-bold text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
                 {{ store.selectedVersion.schedule_name }}
             </div>
         </div>
         
-        <DataTable :value="scheduleData" :loading="store.loading" stripedRows scrollable scrollHeight="65vh" tableStyle="min-width: 80rem; table-layout: fixed" class="p-datatable-sm master-table">
+        <DataTable :value="scheduleData" :loading="store.loading" stripedRows scrollable scrollHeight="65vh" :tableStyle="store.isCompressed ? 'min-width: 70rem; table-layout: fixed' : 'min-width: 80rem; table-layout: fixed'" :class="['p-datatable-sm master-table', { 'compressed-mode': store.isCompressed }]">
             <template #empty>
                 <div class="py-20 text-center">
                     <i class="pi pi-inbox text-5xl text-gray-200 dark:text-gray-700 mb-4"></i>
                     <p class="text-gray-400 dark:text-gray-500 font-medium">No data found for this version.</p>
                 </div>
             </template>
-            <Column field="teacherName" header="Teacher" frozen class="font-bold teacher-col" style="width: 150px">
+            <Column field="teacherName" header="Teacher" frozen class="font-bold teacher-col" :style="{ width: store.isCompressed ? '120px' : '150px' }">
                 <template #body="slotProps">
                     <div class="flex flex-col gap-1 py-1">
                         <div class="flex items-start justify-between gap-1">
@@ -78,14 +78,14 @@ const openUnplacedSections = (teacher) => {
                     </div>
                 </template>
             </Column>
-            <Column v-for="p in periods" :key="p.coursePeriodId" class="text-gray-900 dark:text-gray-100 align-top" style="min-width: 200px; width: auto">
+            <Column v-for="p in periods" :key="p.coursePeriodId" class="text-gray-900 dark:text-gray-100 align-top" :style="{ minWidth: store.isCompressed ? '160px' : '200px', width: 'auto' }">
                 <template #header>
                     <div class="flex flex-col items-center w-full group/period">
                         <div class="flex items-center gap-2">
-                            <span class="text-[11px] font-black">{{ p.name }}</span>
+                            <span :class="['font-black', store.isCompressed ? 'text-[10px]' : 'text-[11px]']">{{ p.name }}</span>
                             <CopyButton v-if="store.showIds && p.coursePeriodId != null" :value="p.coursePeriodId" label="Period ID" />
                         </div>
-                        <span v-if="p.startTime" class="text-[9px] font-bold opacity-60 tracking-normal normal-case mt-0.5">
+                        <span v-if="p.startTime" :class="['font-bold opacity-60 tracking-normal normal-case mt-0.5', store.isCompressed ? 'text-[8px]' : 'text-[9px]']">
                             {{ formatTime(p.startTime) }} - {{ formatTime(p.endTime) }}
                         </span>
                     </div>
@@ -131,6 +131,11 @@ const openUnplacedSections = (teacher) => {
     border-right-width: 1px !important;
     padding: 0.75rem 0.5rem !important;
     text-align: center !important;
+}
+
+.compressed-mode :deep(.p-datatable-thead > tr > th) {
+    padding: 0.4rem 0.25rem !important;
+    font-size: 0.65rem !important;
 }
 
 :deep(.p-datatable-thead > tr > th:last-child) {

@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import Button from 'primevue/button'
 import SectionCard from './SectionCard.vue'
 import { isRelatedSection } from '../utils/scheduleHelpers'
+import { store } from '../store'
 
 const props = defineProps({
     teacher: Object,
@@ -53,7 +54,7 @@ watch(() => props.hoveredSection, (newTarget) => {
 </script>
 
 <template>
-    <div class="grid grid-rows-4 gap-1.5 min-h-[350px] relative p-3 items-stretch group/cell">
+    <div :class="['grid grid-rows-4 gap-1.5 relative items-stretch group/cell overflow-hidden min-h-0', store.isCompressed ? 'h-[260px] p-1.5' : 'h-[350px] p-3']">
         <!-- Quarter Separator Lines -->
         <div v-for="q in 4" :key="'qline-' + q" class="absolute left-0 right-0 border-b border-gray-50 dark:border-gray-800/50 pointer-events-none" :style="{ top: ((q-1) * 25) + '%', height: '25%' }"></div>
 

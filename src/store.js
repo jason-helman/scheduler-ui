@@ -9,6 +9,7 @@ export const store = reactive({
     loading: false,
     error: null,
     showIds: false,
+    isCompressed: false,
     diagnostics: null,
     
     // Navigation state

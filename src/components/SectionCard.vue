@@ -1,5 +1,7 @@
 <script setup>
+import { computed, ref } from 'vue'
 import { store } from '../store'
+import Dialog from 'primevue/dialog'
 import CopyButton from './CopyButton.vue'
 import { getHighlightClass } from '../utils/scheduleHelpers'
 
@@ -9,6 +11,36 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['hover', 'leave', 'toggle-lock'])
+const showStudentsDialog = ref(false)
+
+const scheduledStudents = computed(() => {
+    const sectionStudentIds = props.section.scheduledStudentIds || props.section.scheduled_student_ids || []
+    if (!store.localDataset || !Array.isArray(store.localDataset.students) || sectionStudentIds.length === 0) return []
+
+    // O(1) lookup map across mixed id shapes and number/string keys
+    const studentMap = {}
+    store.localDataset.students.forEach(s => {
+        const id = s.studentId || s.student_id || s.id
+        if (id != null) studentMap[String(id)] = s
+    })
+
+    return sectionStudentIds
+        .map(id => {
+            const student = studentMap[String(id)]
+            if (!student) return null
+
+            const displayName =
+                student.name ||
+                student.fullName ||
+                student.student_name ||
+                [student.first_name, student.last_name].filter(Boolean).join(' ') ||
+                String(id)
+
+            return { ...student, _displayName: displayName }
+        })
+        .filter(Boolean)
+        .sort((a, b) => a._displayName.localeCompare(b._displayName))
+})
 </script>
 
 <template>
@@ -18,8 +50,9 @@ const emit = defineEmits(['hover', 'leave', 'toggle-lock'])
          :style="{ 
             gridRow: `${section.startQ} / ${section.endQ + 1}`
          }"
-         class="p-2.5 rounded-xl border bg-white dark:bg-gray-900 shadow-sm transition-all duration-200 hover:shadow-2xl hover:shadow-blue-500/30 flex flex-col justify-between overflow-hidden hover:overflow-visible z-10 w-full group/segment relative hover:z-[200] cursor-default ring-inset hover:ring-2 hover:ring-blue-500/50"
          :class="[
+            'border bg-white dark:bg-gray-900 shadow-sm transition-all duration-200 hover:shadow-2xl hover:shadow-blue-500/30 flex flex-col justify-between overflow-hidden z-10 w-full h-full min-h-0 group/segment relative hover:z-[200] cursor-default ring-inset hover:ring-2 hover:ring-blue-500/50',
+            store.isCompressed ? 'p-1.5 rounded-lg' : 'p-2.5 rounded-xl',
             section.locked ? 'border-amber-200 dark:border-amber-900/50 bg-amber-50/30 dark:bg-amber-900/10' : 'border-gray-100 dark:border-gray-700',
             section.isLab ? 'is-lab' : '',
             getHighlightClass(section, hoveredSection)
@@ -41,34 +74,64 @@ const emit = defineEmits(['hover', 'leave', 'toggle-lock'])
             </div>
         </div>
 
-        <div class="min-h-0 text-center">
-            <div class="flex items-start justify-between gap-1">
-                <div class="text-[9px] font-black uppercase tracking-tighter line-clamp-1 leading-tight mb-0.5 flex-1"
-                     :class="section.isLab ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400'"
+        <div class="flex-1 min-h-0 text-center flex flex-col overflow-hidden">
+            <div class="flex items-start justify-between gap-1 shrink-0">
+                <div :class="['font-black uppercase tracking-tighter line-clamp-1 leading-tight mb-0.5 flex-1', store.isCompressed ? 'text-[8px]' : 'text-[9px]', section.isLab ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400']"
                      v-tooltip.top="section.course_name">
                     {{ section.course_name }}
                 </div>
-                <i :class="['pi cursor-pointer text-[10px] transition-colors', section.locked ? 'pi-lock text-amber-500' : 'pi-lock-open text-gray-300 hover:text-blue-400']" 
+                <i :class="['pi cursor-pointer transition-colors', store.isCompressed ? 'text-[8px]' : 'text-[10px]', section.locked ? 'pi-lock text-amber-500' : 'pi-lock-open text-gray-300 hover:text-blue-400']" 
                    @click.stop="emit('toggle-lock', section.sectionId)"
                    v-tooltip.top="section.locked ? 'Unlock Placement' : 'Lock Placement'"></i>
             </div>
-            <div v-if="section.quarterCount > 1 || section.days" class="text-[8px] text-gray-400 font-black space-y-0.5">
+            
+            <div v-if="section.quarterCount > 1 || section.days" class="text-[8px] text-gray-400 font-black space-y-0.5 mb-1.5 shrink-0">
                 <div v-if="section.quarterCount > 1">Q: {{ section.quarters }}</div>
                 <div v-if="section.days" class="text-emerald-500 dark:text-emerald-400">D: {{ section.days }}</div>
             </div>
         </div>
         
-        <div class="flex items-center justify-between mt-auto pt-1 border-t border-gray-50 dark:border-gray-800">
-            <div class="flex items-center gap-1 text-[8px] text-gray-400 dark:text-gray-500 font-bold truncate flex-1">
-                <i class="pi pi-map-marker text-[7px]"></i>
+        <div :class="['flex items-center justify-between mt-auto pt-1 border-t border-gray-50 dark:border-gray-800 shrink-0', store.isCompressed ? 'gap-1' : '']">
+            <div :class="['flex items-center gap-1 text-gray-400 dark:text-gray-500 font-bold truncate flex-1', store.isCompressed ? 'text-[7px]' : 'text-[8px]']">
+                <i :class="['pi pi-map-marker', store.isCompressed ? 'text-[6px]' : 'text-[7px]']"></i>
                 {{ section.room_name }}
             </div>
-            <div class="flex items-center gap-1 text-[8px] font-black text-gray-600 dark:text-gray-300">
-                <i class="pi pi-users text-[8px]"></i>
+            <button
+                type="button"
+                @click.stop="showStudentsDialog = true"
+                :class="[
+                    'flex items-center gap-1 font-black text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer',
+                    store.isCompressed ? 'text-[7px]' : 'text-[8px]'
+                ]"
+                v-tooltip.top="'View Students'"
+            >
+                <i :class="['pi pi-users', store.isCompressed ? 'text-[7px]' : 'text-[8px]']"></i>
                 {{ section.student_count }}
-            </div>
+            </button>
         </div>
     </div>
+
+    <Dialog
+        v-model:visible="showStudentsDialog"
+        modal
+        :header="`${section.course_name} · Students`"
+        :style="{ width: '26rem' }"
+        :dismissableMask="true"
+    >
+        <div class="max-h-[55vh] overflow-y-auto pr-1 space-y-1.5">
+            <div
+                v-for="st in scheduledStudents"
+                :key="st.studentId || st.student_id || st.id || st._displayName"
+                class="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 bg-gray-50 dark:bg-gray-800/60"
+            >
+                <span class="truncate text-xs font-semibold text-gray-700 dark:text-gray-300">{{ st._displayName }}</span>
+                <span v-if="st.grade" class="text-[11px] text-blue-500 font-bold shrink-0">Grade {{ st.grade }}</span>
+            </div>
+            <div v-if="scheduledStudents.length === 0" class="py-8 text-center text-xs text-gray-400 dark:text-gray-500 font-semibold">
+                No students scheduled
+            </div>
+        </div>
+    </Dialog>
 </template>
 
 <style scoped>
@@ -117,5 +180,17 @@ const emit = defineEmits(['hover', 'leave', 'toggle-lock'])
 
 .my-app-dark .highlight-subsection {
     background-color: #312e81 !important;
+}
+
+/* Scrollbar refinement */
+.scrollbar-thin::-webkit-scrollbar {
+    width: 3px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 10px;
+}
+.my-app-dark .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #1e293b;
 }
 </style>

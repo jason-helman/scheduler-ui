@@ -89,8 +89,10 @@ export default defineConfig({
             })),
             students: students.map(s => {
               const opt = studentOptions.find(o => o.student_id === s.id);
+              const displayName = s.name || [s.first_name, s.last_name].filter(Boolean).join(' ') || String(s.id);
               return {
                 studentId: s.id,
+                name: displayName,
                 grade: opt?.grade || '',
                 inclusion: !!opt?.is_special_ed
               };
@@ -126,6 +128,9 @@ export default defineConfig({
 
               const spanEntry = sectionSpans.find(ss => ss.section_id === s.section_id);
               const subsectionEntry = subsections.find(sub => sub.subsection_id === s.section_id);
+              const scheduledStudentIds = studentSchedules
+                .filter(ss => ss.section_id === s.section_id)
+                .map(ss => ss.student_id);
 
               return {
                 sectionId: s.section_id,
@@ -145,7 +150,8 @@ export default defineConfig({
                 courseCode: course?.course_code || 'N/A',
                 teacher_name: teacher?.name || 'Unknown Teacher',
                 room_name: room?.classroom_name || 'N/A',
-                student_count: studentSchedules.filter(ss => ss.section_id === s.section_id).length,
+                student_count: scheduledStudentIds.length,
+                scheduledStudentIds,
                 quarters: quarters.join(',')
               };
             }),

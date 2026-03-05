@@ -87,7 +87,9 @@ const runPlacement = async () => {
                     coursePeriodIds: ps.course_period_ids || [],
                     quartersDays: ps.quarters_days,
                     quarters: ps.quarters || s.quarters,
-                    days: ps.days || s.days
+                    days: ps.days || s.days,
+                    student_count: ps.student_count ?? s.student_count,
+                    scheduledStudentIds: ps.scheduled_student_ids || ps.scheduledStudentIds || s.scheduledStudentIds || []
                 }
             }
             return s
