@@ -5,7 +5,7 @@ import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Tag from 'primevue/tag'
 import Badge from 'primevue/badge'
-import CopyButton from './common/CopyButton.vue'
+import { CopyButton } from './common'
 
 const selectedUnplacedSection = ref(null)
 

@@ -2,8 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { store } from '../../store'
 import Dialog from 'primevue/dialog'
-import CopyButton from '../common/CopyButton.vue'
-import BadgeList from '../common/BadgeList.vue'
+import { CopyButton, BadgeList } from '../common'
 import { useSectionBadges } from '../../composables/useSectionBadges'
 import { getCourseByIdMap, getHighlightClass, getStudentByIdMap } from '../../utils/scheduleHelpers'
 

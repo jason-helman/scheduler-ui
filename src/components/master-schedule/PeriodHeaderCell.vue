@@ -1,5 +1,5 @@
 <script setup>
-import CopyButton from '../common/CopyButton.vue'
+import { CopyButton } from '../common'
 
 const props = defineProps({
     period: {

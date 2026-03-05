@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import Dialog from 'primevue/dialog'
 import Button from 'primevue/button'
-import CopyButton from '../common/CopyButton.vue'
+import { CopyButton } from '../common'
 import { store } from '../../store'
 
 const props = defineProps({
