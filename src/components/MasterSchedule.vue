@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed, shallowRef, onBeforeUnmount, onMounted, nextTick, watch } from 'vue'
+import { ref, computed } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Badge from 'primevue/badge'
+import Message from 'primevue/message'
 import BadgeChip from './BadgeChip.vue'
 import CopyButton from './CopyButton.vue'
 import ScheduleSelector from './ScheduleSelector.vue'
@@ -11,22 +12,13 @@ import ScheduleCell from './ScheduleCell.vue'
 import { store } from '../store'
 import { transformScheduleData, transformPeriods } from '../utils/scheduleTransformer'
 import { isRelatedSection } from '../utils/scheduleHelpers'
+import { useSectionNavigation } from '../composables/useSectionNavigation'
+import { useViewportTableHeight } from '../composables/useViewportTableHeight'
 
 const showUnplacedDialog = ref(false)
 const selectedTeacherIdForUnplaced = ref(null)
-const hoveredSection = shallowRef(null)
-const hoveredSectionKey = ref(null)
-const jumpPulseSection = shallowRef(null)
-const jumpPulseVisible = ref(false)
-const highlightedTeacherId = ref(null)
 const tableRef = ref(null)
 const tableHostRef = ref(null)
-const tableScrollHeight = ref('65vh')
-let hoverRafId = null
-let nextHoveredSection = null
-let clearHighlightTimeoutId = null
-let tableHeightRafId = null
-let jumpPulseTimerIds = []
 
 const formatTime = (timeStr) => {
     if (!timeStr) return ''
@@ -50,24 +42,6 @@ const virtualScrollerOptions = computed(() => ({
     showLoader: false
 }))
 
-const updateTableScrollHeight = () => {
-    if (!tableHostRef.value) return
-    const top = tableHostRef.value.getBoundingClientRect().top
-    const viewportHeight = window.innerHeight
-    const bottomGap = 40
-    const available = Math.floor(viewportHeight - top - bottomGap)
-    const minHeight = store.isCompressed ? 260 : 320
-    tableScrollHeight.value = `${Math.max(minHeight, available)}px`
-}
-
-const scheduleTableHeightUpdate = () => {
-    if (tableHeightRafId != null) cancelAnimationFrame(tableHeightRafId)
-    tableHeightRafId = requestAnimationFrame(() => {
-        tableHeightRafId = null
-        updateTableScrollHeight()
-    })
-}
-
 const openUnplacedSections = (teacher) => {
     if (teacher.unplacedSections && teacher.unplacedSections.length > 0) {
         selectedTeacherIdForUnplaced.value = teacher.teacherId
@@ -75,228 +49,27 @@ const openUnplacedSections = (teacher) => {
     }
 }
 
-const getHoverKey = (section) => {
-    if (!section) return null
-    return `${section.sectionId ?? ''}:${section.spanId ?? ''}:${section.parentSectionId ?? ''}`
-}
-
-const applyHoveredSection = () => {
-    hoverRafId = null
-    const key = getHoverKey(nextHoveredSection)
-    if (key === hoveredSectionKey.value) return
-    hoveredSection.value = nextHoveredSection
-    hoveredSectionKey.value = key
-}
-
-const scheduleHoveredSectionUpdate = (section) => {
-    nextHoveredSection = section
-    if (hoverRafId != null) return
-    hoverRafId = requestAnimationFrame(applyHoveredSection)
-}
-
-const waitForSectionElement = (sectionId, timeoutMs = 1800) => {
-    const targetId = String(sectionId)
-    const start = performance.now()
-
-    return new Promise(resolve => {
-        const poll = () => {
-            const tableEl = tableRef.value?.$el
-            const node = tableEl?.querySelector?.(`[data-section-id="${targetId}"]`)
-            if (node) {
-                resolve(node)
-                return
-            }
-            if ((performance.now() - start) >= timeoutMs) {
-                resolve(null)
-                return
-            }
-            requestAnimationFrame(poll)
-        }
-        requestAnimationFrame(poll)
-    })
-}
-
-const setHoveredSection = (section) => {
-    scheduleHoveredSectionUpdate(section)
-}
-
-const clearHoveredSection = () => {
-    scheduleHoveredSectionUpdate(null)
-}
-
-const jumpToTeacherRow = async (targetTeacherId, options = {}) => {
-    const { highlightRow = true } = options
-    const teacherIdNum = Number(targetTeacherId)
-    if (!Number.isFinite(teacherIdNum)) return
-
-    const rowIndex = scheduleData.value.findIndex(t => Number(t.teacherId) === teacherIdNum)
-    if (rowIndex === -1) return
-
-    const tableEl = tableRef.value?.$el
-    const virtualScrollerEl = tableEl?.querySelector('.p-virtualscroller')
-    if (virtualScrollerEl) {
-        const headerEl = tableEl?.querySelector('.p-datatable-thead')
-        const headerHeight = headerEl?.getBoundingClientRect().height || 0
-        const topPadding = store.isCompressed ? 12 : 8
-        const targetTop = Math.max(0, (rowIndex * rowItemSize.value) - headerHeight - topPadding)
-        if (typeof virtualScrollerEl.scrollTo === 'function') {
-            virtualScrollerEl.scrollTo({ top: targetTop, behavior: 'smooth' })
-        } else {
-            virtualScrollerEl.scrollTop = targetTop
-        }
-    }
-
-    if (highlightRow) {
-        highlightedTeacherId.value = teacherIdNum
-        if (clearHighlightTimeoutId) clearTimeout(clearHighlightTimeoutId)
-        clearHighlightTimeoutId = setTimeout(() => {
-            highlightedTeacherId.value = null
-            clearHighlightTimeoutId = null
-        }, 1500)
-    }
-}
-
-const startJumpPulse = (section) => {
-    if (!section) return
-    jumpPulseTimerIds.forEach(id => clearTimeout(id))
-    jumpPulseTimerIds = []
-    jumpPulseSection.value = section
-    jumpPulseVisible.value = false
-
-    const pulsePlan = [
-        [0, true],
-        [420, false],
-        [1120, true],
-        [1540, false],
-        [2240, true],
-        [2660, false]
-    ]
-
-    pulsePlan.forEach(([delayMs, visible]) => {
-        const id = setTimeout(() => {
-            jumpPulseVisible.value = visible
-        }, delayMs)
-        jumpPulseTimerIds.push(id)
-    })
-
-    const cleanupId = setTimeout(() => {
-        jumpPulseVisible.value = false
-        jumpPulseSection.value = null
-    }, 2800)
-    jumpPulseTimerIds.push(cleanupId)
-}
-
-const findRelatedSectionForTeacher = (targetTeacherId, source) => {
-    const teacher = scheduleData.value.find(t => Number(t.teacherId) === Number(targetTeacherId))
-    if (!teacher) return null
-
-    const sections = []
-    const periodLayers = teacher.periodLayers || {}
-    Object.values(periodLayers).forEach(layers => {
-        layers.forEach(layer => {
-            layer.forEach(section => {
-                if (section?.isRestriction) return
-                sections.push(section)
-            })
-        })
-    })
-
-    if (sections.length === 0) return null
-    if (!source) return sections[0]
-
-    const sourceSectionId = source.sectionId != null ? String(source.sectionId) : null
-    const sourceSpanId = source.spanId != null ? String(source.spanId) : null
-    const sourceParentSectionId = source.parentSectionId != null ? String(source.parentSectionId) : null
-
-    if (sourceSectionId) {
-        const bySectionId = sections.find(s => String(s.sectionId) === sourceSectionId)
-        if (bySectionId) return bySectionId
-    }
-
-    if (sourceSpanId) {
-        const bySpan = sections.find(s => s.spanId != null && String(s.spanId) === sourceSpanId)
-        if (bySpan) return bySpan
-    }
-
-    if (sourceParentSectionId) {
-        const byParent = sections.find(s => s.parentSectionId != null && String(s.parentSectionId) === sourceParentSectionId)
-        if (byParent) return byParent
-    }
-
-    const byRelation = sections.find(s => isRelatedSection(s, source))
-    return byRelation || sections[0]
-}
-
-const jumpToTeacher = async (target) => {
-    const teacherId = target && typeof target === 'object' ? target.teacherId : target
-    const teacherIdNum = Number(teacherId)
-    if (!Number.isFinite(teacherIdNum)) return
-
-    const source = target && typeof target === 'object'
-        ? {
-            sectionId: target.sourceSectionId,
-            spanId: target.sourceSpanId,
-            parentSectionId: target.sourceParentSectionId
-        }
-        : null
-
-    const relatedSection = findRelatedSectionForTeacher(teacherIdNum, source)
-    await jumpToTeacherRow(teacherIdNum, { highlightRow: false })
-
-    if (!relatedSection) return
-    await waitForSectionElement(relatedSection.sectionId)
-    startJumpPulse(relatedSection)
-}
-
-const jumpToSection = async (targetSectionId) => {
-    if (targetSectionId == null) return
-    const targetSectionIdStr = String(targetSectionId)
-
-    let targetTeacherId = null
-    let targetSection = null
-
-    for (const teacher of scheduleData.value) {
-        const periodLayers = teacher?.periodLayers || {}
-        const periodLayerGroups = Object.values(periodLayers)
-        for (const layers of periodLayerGroups) {
-            for (const layer of layers) {
-                const found = layer.find(section => String(section?.sectionId) === targetSectionIdStr)
-                if (found) {
-                    targetTeacherId = teacher.teacherId
-                    targetSection = found
-                    break
-                }
-            }
-            if (targetTeacherId != null) break
-        }
-        if (targetTeacherId != null) break
-    }
-
-    if (targetTeacherId == null || !targetSection) return
-
-    await jumpToTeacherRow(targetTeacherId, { highlightRow: false })
-    await waitForSectionElement(targetSection.sectionId)
-    startJumpPulse(targetSection)
-}
-
-onBeforeUnmount(() => {
-    if (hoverRafId != null) cancelAnimationFrame(hoverRafId)
-    if (tableHeightRafId != null) cancelAnimationFrame(tableHeightRafId)
-    if (clearHighlightTimeoutId) clearTimeout(clearHighlightTimeoutId)
-    jumpPulseTimerIds.forEach(id => clearTimeout(id))
-    jumpPulseTimerIds = []
-    window.removeEventListener('resize', scheduleTableHeightUpdate)
+const { tableScrollHeight } = useViewportTableHeight({
+    tableHostRef,
+    isCompressed: computed(() => store.isCompressed),
+    watchSource: () => [store.isCompressed, store.error, store.selectedVersion?.schedule_id ?? null, periods.value.length]
 })
 
-onMounted(() => {
-    nextTick(() => updateTableScrollHeight())
-    window.addEventListener('resize', scheduleTableHeightUpdate)
+const {
+    effectiveHoveredSection,
+    jumpPulseSectionId,
+    jumpPulseVisible,
+    setHoveredSection,
+    clearHoveredSection,
+    jumpToTeacherRelatedSection,
+    jumpToSection
+} = useSectionNavigation({
+    scheduleData,
+    tableRef,
+    rowItemSize,
+    isCompressed: computed(() => store.isCompressed),
+    isRelatedSection
 })
-
-watch(
-    () => [store.isCompressed, store.error, store.selectedVersion?.schedule_id ?? null, periods.value.length],
-    () => nextTick(() => scheduleTableHeightUpdate())
-)
 </script>
 
 <template>
@@ -336,10 +109,7 @@ watch(
                 <template #body="slotProps">
                     <div
                         :id="`teacher-row-${slotProps.data.teacherId}`"
-                        :class="[
-                            'flex flex-col gap-1 py-1 px-1.5 rounded transition-colors duration-150',
-                            Number(highlightedTeacherId) === Number(slotProps.data.teacherId) ? 'bg-yellow-100/80 dark:bg-yellow-900/40' : ''
-                        ]"
+                        class="flex flex-col gap-1 py-1 px-1.5 rounded transition-colors duration-150"
                     >
                         <div class="flex items-start justify-between gap-1">
                             <span class="truncate leading-tight text-[11px] text-gray-900 dark:text-gray-100" v-tooltip.top="slotProps.data.teacherName">
@@ -420,13 +190,13 @@ watch(
                     <ScheduleCell 
                         :teacher="slotProps.data" 
                         :period-id="p.coursePeriodId" 
-                        :hovered-section="(jumpPulseSection && hoveredSection && String(hoveredSection.sectionId) === String(jumpPulseSection.sectionId) && !jumpPulseVisible) ? null : hoveredSection"
-                        :jump-pulse-section-id="jumpPulseSection?.sectionId ?? null"
+                        :hovered-section="effectiveHoveredSection"
+                        :jump-pulse-section-id="jumpPulseSectionId"
                         :jump-pulse-visible="jumpPulseVisible"
                         @hover="setHoveredSection"
                         @leave="clearHoveredSection"
                         @toggle-lock="id => store.toggleLock(id)"
-                        @jump-to-teacher="jumpToTeacher"
+                        @jump-to-teacher="jumpToTeacherRelatedSection"
                         @jump-to-section="jumpToSection"
                     />
                 </template>
