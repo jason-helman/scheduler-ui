@@ -95,17 +95,61 @@ const quickFlags = computed(() => {
 
 const compactBadgeLabels = computed(() => {
     const badges = []
-    if (props.section.quarters) badges.push({ key: 'q', label: `Q ${props.section.quarters}`, tone: 'slate' })
-    if (props.section.days) badges.push({ key: 'd', label: `D ${props.section.days}`, tone: 'emerald' })
+    if (quarterBadgeLabel.value) badges.push({ key: 'q', label: quarterBadgeLabel.value, tone: 'slate' })
+    if (showDayBadge.value) badges.push({ key: 'd', label: `D ${props.section.days}`, tone: 'emerald' })
     quickFlags.value.forEach(flag => badges.push({ key: flag.key, label: flag.label, tone: flag.tone }))
     return badges
 })
 const inlineBadges = computed(() => {
     const badges = []
-    if (props.section.quarters) badges.push({ key: 'q', label: `Q ${props.section.quarters}`, tone: 'slate' })
-    if (props.section.days) badges.push({ key: 'd', label: `D ${props.section.days}`, tone: 'emerald' })
+    if (quarterBadgeLabel.value) badges.push({ key: 'q', label: quarterBadgeLabel.value, tone: 'slate' })
+    if (showDayBadge.value) badges.push({ key: 'd', label: `D ${props.section.days}`, tone: 'emerald' })
     quickFlags.value.forEach(flag => badges.push({ key: flag.key, label: flag.label, tone: flag.tone }))
     return badges
+})
+
+const scheduleMaxDays = computed(() => {
+    const structure = store.localDataset?.scheduleStructure
+    if (!Array.isArray(structure) || structure.length === 0) return 0
+    return new Set(
+        structure
+            .map(ss => Number(ss?.day))
+            .filter(day => Number.isFinite(day) && day > 0)
+    ).size
+})
+
+const sectionDayCount = computed(() =>
+    String(props.section.days || '')
+        .split(',')
+        .map(d => d.trim())
+        .filter(Boolean)
+        .length
+)
+
+const quarterBadgeLabel = computed(() => {
+    const tokens = String(props.section.quarters || '')
+        .split(',')
+        .map(q => q.trim())
+        .filter(Boolean)
+    if (tokens.length <= 1) return ''
+
+    const numeric = tokens
+        .map(Number)
+        .filter(n => Number.isFinite(n) && n > 0)
+        .sort((a, b) => a - b)
+    const key = numeric.join(',')
+    if (key === '1,2') return 'S1'
+    if (key === '3,4') return 'S2'
+    if (key === '1,2,3,4') return 'FY'
+
+    if (sectionQuarterCount.value >= 4) return 'FY'
+    return `Q ${tokens.join(',')}`
+})
+
+const showDayBadge = computed(() => {
+    if (!props.section.days) return false
+    if (scheduleMaxDays.value <= 0) return true
+    return sectionDayCount.value > 0 && sectionDayCount.value < scheduleMaxDays.value
 })
 
 const compactBadgeCount = computed(() => compactBadgeLabels.value.length)
