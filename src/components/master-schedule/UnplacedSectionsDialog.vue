@@ -2,8 +2,8 @@
 import { computed } from 'vue'
 import Dialog from 'primevue/dialog'
 import Button from 'primevue/button'
-import CopyButton from './CopyButton.vue'
-import { store } from '../store'
+import CopyButton from '../CopyButton.vue'
+import { store } from '../../store'
 
 const props = defineProps({
     visible: Boolean,

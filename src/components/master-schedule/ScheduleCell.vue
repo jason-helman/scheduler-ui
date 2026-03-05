@@ -2,8 +2,8 @@
 import { ref, computed, watch } from 'vue'
 import Button from 'primevue/button'
 import SectionCard from './SectionCard.vue'
-import { isRelatedSection } from '../utils/scheduleHelpers'
-import { store } from '../store'
+import { isRelatedSection } from '../../utils/scheduleHelpers'
+import { store } from '../../store'
 
 const props = defineProps({
     teacher: Object,

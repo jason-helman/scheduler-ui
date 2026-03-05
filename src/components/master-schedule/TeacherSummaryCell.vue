@@ -1,7 +1,7 @@
 <script setup>
 import Badge from 'primevue/badge'
-import BadgeChip from './BadgeChip.vue'
-import CopyButton from './CopyButton.vue'
+import BadgeChip from '../BadgeChip.vue'
+import CopyButton from '../CopyButton.vue'
 
 defineProps({
     teacher: {
