@@ -2,13 +2,12 @@
 import { ref, computed } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import Badge from 'primevue/badge'
 import Message from 'primevue/message'
-import BadgeChip from './BadgeChip.vue'
 import CopyButton from './CopyButton.vue'
 import ScheduleSelector from './ScheduleSelector.vue'
 import UnplacedSectionsDialog from './UnplacedSectionsDialog.vue'
 import ScheduleCell from './ScheduleCell.vue'
+import TeacherSummaryCell from './TeacherSummaryCell.vue'
 import { store } from '../store'
 import { transformScheduleData, transformPeriods } from '../utils/scheduleTransformer'
 import { isRelatedSection } from '../utils/scheduleHelpers'
@@ -107,71 +106,7 @@ const {
             </template>
             <Column field="teacherName" header="Teacher" frozen class="font-bold teacher-col" :style="{ width: store.isCompressed ? '120px' : '150px' }">
                 <template #body="slotProps">
-                    <div
-                        :id="`teacher-row-${slotProps.data.teacherId}`"
-                        class="flex flex-col gap-1 py-1 px-1.5 rounded transition-colors duration-150"
-                    >
-                        <div class="flex items-start justify-between gap-1">
-                            <span class="truncate leading-tight text-[11px] text-gray-900 dark:text-gray-100" v-tooltip.top="slotProps.data.teacherName">
-                                {{ slotProps.data.teacherName }}
-                            </span>
-                            <CopyButton v-if="store.showIds && slotProps.data.teacherId != null" :value="slotProps.data.teacherId" label="Teacher ID" />
-                        </div>
-
-                        <div class="flex flex-wrap items-center gap-1 text-[8px] font-black uppercase tracking-wider">
-                            <BadgeChip :label="`${slotProps.data.summary?.sections ?? 0} Sec`" tone="slate" size="sm" shape="rounded" />
-                            <BadgeChip :label="`${slotProps.data.summary?.students ?? 0} Stu`" tone="blue" size="sm" shape="rounded" />
-                            <BadgeChip
-                                :label="`${slotProps.data.summary?.placementPct ?? 100}% Placed`"
-                                :tone="(slotProps.data.summary?.unplaced ?? 0) > 0 ? 'amber' : 'emerald'"
-                                size="sm"
-                                shape="rounded"
-                            />
-                        </div>
-
-                        <div class="text-[8px] font-bold text-gray-500 dark:text-gray-400 leading-tight">
-                            <span class="uppercase tracking-wider">Classrooms:</span>
-                            <BadgeChip
-                                class="ml-1"
-                                :label="`${slotProps.data.summary?.classroomCount ?? slotProps.data.summary?.roomDiversity ?? 0}`"
-                                tone="slate"
-                                size="sm"
-                                shape="rounded"
-                                :tooltip="slotProps.data.summary?.classroomList || 'No classrooms'"
-                            />
-                        </div>
-
-                        <div class="text-[8px] font-bold text-gray-500 dark:text-gray-400 leading-tight">
-                            <span class="uppercase tracking-wider">Departments:</span>
-                            <BadgeChip
-                                class="ml-1"
-                                :label="`${slotProps.data.summary?.departmentCount ?? 0}`"
-                                tone="slate"
-                                size="sm"
-                                shape="rounded"
-                                :tooltip="slotProps.data.summary?.departmentList || 'No departments'"
-                            />
-                        </div>
-
-                        <div class="text-[8px] font-bold text-gray-500 dark:text-gray-400 leading-tight">
-                            <span class="uppercase tracking-wider">Subjects:</span>
-                            <BadgeChip
-                                class="ml-1"
-                                :label="`${slotProps.data.summary?.subjectCount ?? 0}`"
-                                tone="slate"
-                                size="sm"
-                                shape="rounded"
-                                :tooltip="slotProps.data.summary?.subjectList || 'No subjects'"
-                            />
-                        </div>
-
-                        <div v-if="(slotProps.data.unplacedSections || []).length > 0" 
-                             class="flex items-center gap-1.5 animate-pulse cursor-pointer hover:opacity-80 transition-opacity"
-                             @click="openUnplacedSections(slotProps.data)">
-                            <Badge :value="slotProps.data.unplacedSections.length" severity="danger" class="!text-[8px] !min-w-[1.2rem] !h-[1.2rem]"></Badge>
-                            <span class="text-[9px] font-black text-red-500 uppercase tracking-tighter hover:underline">Unplaced</span>
-                        </div>
-                    </div>
+                    <TeacherSummaryCell :teacher="slotProps.data" :show-ids="store.showIds" @open-unplaced="openUnplacedSections" />
                 </template>
             </Column>
             <Column v-for="p in periods" :key="p.coursePeriodId" class="text-gray-900 dark:text-gray-100 align-top" :style="{ minWidth: store.isCompressed ? '160px' : '200px', width: 'auto' }">

@@ -1,5 +1,16 @@
 import { computed, onBeforeUnmount, ref, shallowRef } from 'vue'
 
+const WAIT_FOR_SECTION_TIMEOUT_MS = 1800
+const JUMP_PULSE_PLAN = [
+    [0, true],
+    [420, false],
+    [1120, true],
+    [1540, false],
+    [2240, true],
+    [2660, false]
+]
+const JUMP_PULSE_CLEANUP_MS = 2800
+
 export function useSectionNavigation({ scheduleData, tableRef, rowItemSize, isCompressed, isRelatedSection }) {
     const hoveredSection = shallowRef(null)
     const hoveredSectionKey = ref(null)
@@ -37,7 +48,7 @@ export function useSectionNavigation({ scheduleData, tableRef, rowItemSize, isCo
         scheduleHoveredSectionUpdate(null)
     }
 
-    const waitForSectionElement = (sectionId, timeoutMs = 1800) => {
+    const waitForSectionElement = (sectionId, timeoutMs = WAIT_FOR_SECTION_TIMEOUT_MS) => {
         const targetId = String(sectionId)
         const start = performance.now()
 
@@ -90,16 +101,7 @@ export function useSectionNavigation({ scheduleData, tableRef, rowItemSize, isCo
         jumpPulseSection.value = section
         jumpPulseVisible.value = false
 
-        const pulsePlan = [
-            [0, true],
-            [420, false],
-            [1120, true],
-            [1540, false],
-            [2240, true],
-            [2660, false]
-        ]
-
-        pulsePlan.forEach(([delayMs, visible]) => {
+        JUMP_PULSE_PLAN.forEach(([delayMs, visible]) => {
             const id = setTimeout(() => {
                 jumpPulseVisible.value = visible
             }, delayMs)
@@ -109,7 +111,7 @@ export function useSectionNavigation({ scheduleData, tableRef, rowItemSize, isCo
         const cleanupId = setTimeout(() => {
             jumpPulseVisible.value = false
             jumpPulseSection.value = null
-        }, 2800)
+        }, JUMP_PULSE_CLEANUP_MS)
         jumpPulseTimerIds.push(cleanupId)
     }
 
