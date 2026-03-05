@@ -15,7 +15,14 @@ const props = defineProps({
     jumpPulseVisible: Boolean
 })
 
-const emit = defineEmits(['hover', 'leave', 'toggle-lock', 'jump-to-teacher', 'jump-to-section'])
+const emit = defineEmits([
+    'hover',
+    'leave',
+    'toggle-lock',
+    'jump-to-teacher',
+    'jump-to-section',
+    'open-diagnostics'
+])
 const showStudentsDialog = ref(false)
 const bodyEl = ref(null)
 const badgeRowsToShow = ref(1)
@@ -65,6 +72,12 @@ const seatUtilization = computed(() => {
 const hasCapacityRisk = computed(() => {
     if (!courseCapacity.value) return false
     return enrolledCount.value > courseCapacity.value
+})
+const diagnosticsCount = computed(() => {
+    if (!store.diagnostics?.sectionPlacement) return 0
+    return store.diagnostics.sectionPlacement.filter(
+        d => d.entityType === 'section' && String(d.entityId) === String(props.section.sectionId)
+    ).length
 })
 const {
     compactBadgeLabels,
@@ -227,7 +240,10 @@ if (masterBadgeFitEpoch) {
         <SectionCardFooter
             :section="section"
             :is-compressed="store.isCompressed"
+            :show-diagnostics-action="!!store.diagnostics"
+            :diagnostics-count="diagnosticsCount"
             @view-students="showStudentsDialog = true"
+            @open-diagnostics="emit('open-diagnostics', section.sectionId)"
         />
     </div>
 

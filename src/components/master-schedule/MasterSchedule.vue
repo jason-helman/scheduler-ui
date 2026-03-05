@@ -40,6 +40,11 @@ const openUnplacedSections = (teacher) => {
     }
 }
 
+const openSectionDiagnostics = (sectionId) => {
+    store.selectedSectionId = sectionId
+    store.currentView = 'Diagnostics'
+}
+
 const { tableScrollHeight } = useViewportTableHeight({
     tableHostRef,
     isCompressed: computed(() => store.isCompressed),
@@ -178,6 +183,7 @@ onBeforeUnmount(() => {
                         @toggle-lock="id => store.toggleLock(id)"
                         @jump-to-teacher="jumpToTeacherRelatedSection"
                         @jump-to-section="jumpToSection"
+                        @open-diagnostics="openSectionDiagnostics"
                     />
                 </template>
             </Column>

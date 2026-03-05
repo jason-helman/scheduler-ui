@@ -18,7 +18,14 @@ const props = defineProps({
     jumpPulseVisible: Boolean
 })
 
-const emit = defineEmits(['hover', 'leave', 'toggle-lock', 'jump-to-teacher', 'jump-to-section'])
+const emit = defineEmits([
+    'hover',
+    'leave',
+    'toggle-lock',
+    'jump-to-teacher',
+    'jump-to-section',
+    'open-diagnostics'
+])
 
 const userSelectedLayerIndex = ref(0)
 const currentLayerIndex = ref(0)
@@ -150,6 +157,7 @@ watch(() => props.hoveredSection, (newTarget) => {
                             @toggle-lock="id => emit('toggle-lock', id)"
                             @jump-to-teacher="id => emit('jump-to-teacher', id)"
                             @jump-to-section="id => emit('jump-to-section', id)"
+                            @open-diagnostics="id => emit('open-diagnostics', id)"
                         />
                     </template>
                 </template>

@@ -181,11 +181,16 @@ const resolveIdName = (id, preferredType = null) => {
     return `${options[0]} (+${options.length - 1} more)`
 }
 
+const idsEqual = (a, b) => String(a) === String(b)
+
 // Sync selected section from store if it changes (external navigation)
 watch([() => store.selectedSectionId, sectionRows], ([newId, sections]) => {
-    if (newId && sections.length > 0) {
-        const found = sections.find(s => s.sectionId === newId)
-        if (found && selectedSection.value?.sectionId !== newId) {
+    if (newId != null && sections.length > 0) {
+        const found = sections.find(s => idsEqual(s.sectionId, newId))
+        if (found) {
+            activeSectionListTab.value = found.isPlaced ? '1' : '0'
+        }
+        if (found && !idsEqual(selectedSection.value?.sectionId, newId)) {
             selectedSection.value = found
         }
     }
@@ -193,8 +198,10 @@ watch([() => store.selectedSectionId, sectionRows], ([newId, sections]) => {
 
 // Also sync internal selection back to store to keep them in sync
 watch(selectedSection, (newSection) => {
-    if (newSection && store.selectedSectionId !== newSection.sectionId) {
+    if (newSection && !idsEqual(store.selectedSectionId, newSection.sectionId)) {
         store.selectedSectionId = newSection.sectionId
+    }
+    if (newSection) {
         activeSectionListTab.value = newSection.isPlaced ? '1' : '0'
     }
     activeSectionDiagnosticTab.value = '0'
