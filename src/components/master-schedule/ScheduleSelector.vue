@@ -3,9 +3,9 @@ import { ref, onMounted, watch } from 'vue'
 import Select from 'primevue/select'
 import Button from 'primevue/button'
 import Menu from 'primevue/menu'
-import { CopyButton } from './common'
-import { store } from '../store'
-import { api } from '../services/api'
+import { CopyButton } from '../common'
+import { store } from '../../store'
+import { api } from '../../services/api'
 
 const actionMenu = ref(null)
 const actionItems = ref([

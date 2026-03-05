@@ -1,6 +1,7 @@
 export { default as MasterSchedule } from './MasterSchedule.vue'
 export { default as PeriodHeaderCell } from './PeriodHeaderCell.vue'
 export { default as ScheduleCell } from './ScheduleCell.vue'
+export { default as ScheduleSelector } from './ScheduleSelector.vue'
 export { default as SectionCard } from './SectionCard.vue'
 export { default as TeacherSummaryCell } from './TeacherSummaryCell.vue'
 export { default as UnplacedSectionsDialog } from './UnplacedSectionsDialog.vue'
