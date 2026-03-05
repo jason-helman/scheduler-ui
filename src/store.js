@@ -14,5 +14,14 @@ export const store = reactive({
     // Navigation state
     currentView: 'MasterSchedule',
     activeReportTab: '0',
-    selectedSectionId: null
+    selectedSectionId: null,
+
+    // Actions
+    toggleLock(sectionId) {
+        if (!this.localDataset || !this.localDataset.sections) return
+        const section = this.localDataset.sections.find(s => s.sectionId === sectionId)
+        if (section) {
+            section.locked = section.locked ? 0 : 1
+        }
+    }
 })
