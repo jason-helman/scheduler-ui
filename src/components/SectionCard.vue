@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { store } from '../store'
 import Dialog from 'primevue/dialog'
 import CopyButton from './CopyButton.vue'
@@ -14,6 +14,12 @@ const props = defineProps({
 
 const emit = defineEmits(['hover', 'leave', 'toggle-lock', 'jump-to-teacher'])
 const showStudentsDialog = ref(false)
+const cardEl = ref(null)
+const bodyEl = ref(null)
+const badgeRowsToShow = ref(1)
+const measuredBadgeRows = ref(null)
+let badgeFitToken = 0
+let cardResizeObserver = null
 
 const scheduledStudents = computed(() => {
     const sectionStudentIds = props.section.scheduledStudentIds || props.section.scheduled_student_ids || []
@@ -104,15 +110,40 @@ const inlineBadges = computed(() => {
 
 const compactBadgeCount = computed(() => compactBadgeLabels.value.length)
 const sectionQuarterCount = computed(() => {
+    const rawQuarters = String(props.section.quarters || '')
+        .split(',')
+        .map(q => q.trim().toUpperCase())
+        .filter(Boolean)
+
+    if (rawQuarters.length > 1) return rawQuarters.length
+
+    if (rawQuarters.length === 1) {
+        const token = rawQuarters[0]
+        if (/^S[12]$/.test(token) || /^SEM(ESTER)?[12]?$/.test(token)) return 2
+        if (/^(Y|FY|FULL\s*YEAR|ANNUAL)$/.test(token)) return 4
+
+        const rangeMatch = token.match(/^(\d)\s*[-/]\s*(\d)$/)
+        if (rangeMatch) {
+            const start = Number(rangeMatch[1])
+            const end = Number(rangeMatch[2])
+            if (Number.isFinite(start) && Number.isFinite(end) && end >= start) {
+                return (end - start) + 1
+            }
+        }
+
+        const numeric = Number(token)
+        if (Number.isFinite(numeric) && numeric > 0) return 1
+    }
+
     const explicitCount = Number(props.section.quarterCount)
     if (Number.isFinite(explicitCount) && explicitCount > 0) return explicitCount
-    if (!props.section.quarters) return 0
-    return String(props.section.quarters)
-        .split(',')
-        .map(q => q.trim())
-        .filter(Boolean).length
+
+    return 0
 })
-const useCompactBadgeOverlay = computed(() => store.isCompressed && sectionQuarterCount.value <= 1)
+const useCompactBadgeOverlay = computed(() => {
+    // Overlay mode is only for compact single-quarter cards.
+    return store.isCompressed && sectionQuarterCount.value === 1
+})
 
 const teacherNameById = computed(() => {
     const map = new Map()
@@ -156,13 +187,72 @@ const coTeacherBadgeItems = computed(() =>
         payload: ct.teacherId
     }))
 )
+const effectiveInlineBadgeRows = computed(() =>
+    measuredBadgeRows.value != null ? measuredBadgeRows.value : badgeRowsToShow.value
+)
 
-const previewStudents = computed(() => scheduledStudents.value.slice(0, 2))
-const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.length - previewStudents.value.length))
+const recomputeBadgeRows = async () => {
+    const token = ++badgeFitToken
+
+    if (store.isCompressed || useCompactBadgeOverlay.value || inlineBadges.value.length === 0) {
+        measuredBadgeRows.value = null
+        badgeRowsToShow.value = 1
+        return
+    }
+
+    if (!bodyEl.value) return
+
+    const maxRows = Math.max(1, inlineBadges.value.length)
+    let fitRows = 1
+
+    for (let rows = maxRows; rows >= 1; rows -= 1) {
+        measuredBadgeRows.value = rows
+        await nextTick()
+        if (token !== badgeFitToken) return
+        if (!bodyEl.value) return
+
+        const overflows = (bodyEl.value.scrollHeight - bodyEl.value.clientHeight) > 1
+        if (!overflows) {
+            fitRows = rows
+            break
+        }
+    }
+
+    if (token !== badgeFitToken) return
+    badgeRowsToShow.value = fitRows
+    measuredBadgeRows.value = null
+}
+
+onMounted(() => {
+    recomputeBadgeRows()
+    if (typeof ResizeObserver === 'undefined' || !cardEl.value) return
+    cardResizeObserver = new ResizeObserver(() => recomputeBadgeRows())
+    cardResizeObserver.observe(cardEl.value)
+})
+
+onBeforeUnmount(() => {
+    if (!cardResizeObserver) return
+    cardResizeObserver.disconnect()
+    cardResizeObserver = null
+})
+
+watch(
+    () => [
+        store.isCompressed,
+        useCompactBadgeOverlay.value,
+        inlineBadges.value.length,
+        coTeacherBadgeItems.value.length
+    ],
+    () => {
+        recomputeBadgeRows()
+    }
+)
+
 </script>
 
 <template>
     <div
+         ref="cardEl"
          @mouseenter="emit('hover', section)"
          @mouseleave="emit('leave')"
          :style="{ 
@@ -205,7 +295,7 @@ const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.le
             </div>
         </div>
 
-        <div class="flex-1 min-h-0 text-center flex flex-col overflow-hidden">
+        <div ref="bodyEl" class="flex-1 min-h-0 text-center flex flex-col overflow-hidden">
             <div class="flex items-start justify-between gap-1 shrink-0">
                 <div class="flex items-start gap-1 min-w-0 flex-1">
                     <span
@@ -224,8 +314,12 @@ const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.le
                    v-tooltip.top="section.locked ? 'Unlock Placement' : 'Lock Placement'"></i>
             </div>
             
-            <div v-if="!store.isCompressed || !useCompactBadgeOverlay" class="space-y-1.5 mt-1 mb-1.5 shrink-0">
-                    <BadgeList :items="inlineBadges" />
+            <div v-if="!useCompactBadgeOverlay" class="space-y-1.5 mt-1 mb-1.5 shrink-0">
+                    <BadgeList
+                        :items="inlineBadges"
+                        :collapse-wrapped="!store.isCompressed"
+                        :max-rows="effectiveInlineBadgeRows"
+                    />
 
                     <div v-if="!store.isCompressed" class="flex items-center justify-between text-[7px] font-bold">
                         <span class="text-slate-400 dark:text-slate-500 uppercase tracking-wider">Seats</span>
@@ -246,18 +340,6 @@ const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.le
                         shape="rounded"
                         @item-click="item => emit('jump-to-teacher', item.payload)"
                     />
-                    </div>
-                    <div v-if="!store.isCompressed" class="space-y-0.5">
-                        <div
-                            v-for="st in previewStudents"
-                            :key="st.studentId || st.student_id || st.id || st._displayName"
-                            class="truncate text-[7px] font-semibold text-slate-500 dark:text-slate-300"
-                        >
-                            {{ st._displayName }}
-                        </div>
-                        <div v-if="hiddenPreviewCount > 0" class="text-[7px] font-black text-blue-500 dark:text-blue-300 uppercase tracking-wider">
-                            +{{ hiddenPreviewCount }} more
-                        </div>
                     </div>
             </div>
         </div>

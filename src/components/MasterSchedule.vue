@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, shallowRef, onBeforeUnmount } from 'vue'
+import { ref, computed, shallowRef, onBeforeUnmount, onMounted, nextTick, watch } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Badge from 'primevue/badge'
@@ -17,9 +17,12 @@ const hoveredSection = shallowRef(null)
 const hoveredSectionKey = ref(null)
 const highlightedTeacherId = ref(null)
 const tableRef = ref(null)
+const tableHostRef = ref(null)
+const tableScrollHeight = ref('65vh')
 let hoverRafId = null
 let nextHoveredSection = null
 let clearHighlightTimeoutId = null
+let tableHeightRafId = null
 
 const formatTime = (timeStr) => {
     if (!timeStr) return ''
@@ -42,6 +45,24 @@ const virtualScrollerOptions = computed(() => ({
     delay: 30,
     showLoader: false
 }))
+
+const updateTableScrollHeight = () => {
+    if (!tableHostRef.value) return
+    const top = tableHostRef.value.getBoundingClientRect().top
+    const viewportHeight = window.innerHeight
+    const bottomGap = 40
+    const available = Math.floor(viewportHeight - top - bottomGap)
+    const minHeight = store.isCompressed ? 260 : 320
+    tableScrollHeight.value = `${Math.max(minHeight, available)}px`
+}
+
+const scheduleTableHeightUpdate = () => {
+    if (tableHeightRafId != null) cancelAnimationFrame(tableHeightRafId)
+    tableHeightRafId = requestAnimationFrame(() => {
+        tableHeightRafId = null
+        updateTableScrollHeight()
+    })
+}
 
 const openUnplacedSections = (teacher) => {
     if (teacher.unplacedSections && teacher.unplacedSections.length > 0) {
@@ -108,8 +129,20 @@ const jumpToTeacherRow = async (targetTeacherId) => {
 
 onBeforeUnmount(() => {
     if (hoverRafId != null) cancelAnimationFrame(hoverRafId)
+    if (tableHeightRafId != null) cancelAnimationFrame(tableHeightRafId)
     if (clearHighlightTimeoutId) clearTimeout(clearHighlightTimeoutId)
+    window.removeEventListener('resize', scheduleTableHeightUpdate)
 })
+
+onMounted(() => {
+    nextTick(() => updateTableScrollHeight())
+    window.addEventListener('resize', scheduleTableHeightUpdate)
+})
+
+watch(
+    () => [store.isCompressed, store.error, store.selectedVersion?.schedule_id ?? null, periods.value.length],
+    () => nextTick(() => scheduleTableHeightUpdate())
+)
 </script>
 
 <template>
@@ -120,25 +153,25 @@ onBeforeUnmount(() => {
     <Message v-if="store.error" severity="error" class="shadow-sm">{{ store.error }}</Message>
 
     <!-- Data Table Card -->
-    <div :class="['card bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-all duration-300', store.isCompressed ? 'p-3' : 'p-6']">
+    <div :class="['card bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-all duration-300 flex flex-col min-h-0', store.isCompressed ? 'p-3' : 'p-6']">
         <div :class="['flex items-center justify-between px-2', store.isCompressed ? 'mb-3' : 'mb-6']">
             <h2 :class="['font-black tracking-tight text-gray-900 dark:text-white transition-all', store.isCompressed ? 'text-xl' : 'text-3xl']">Master Schedule</h2>
             <div v-if="store.selectedVersion" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-xs font-bold text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
                 {{ store.selectedVersion.schedule_name }}
             </div>
         </div>
-        
-        <DataTable
-            ref="tableRef"
-            :value="scheduleData"
-            :loading="store.loading"
-            stripedRows
-            scrollable
-            scrollHeight="65vh"
-            :virtualScrollerOptions="virtualScrollerOptions"
-            :tableStyle="store.isCompressed ? 'min-width: 70rem; table-layout: fixed' : 'min-width: 80rem; table-layout: fixed'"
-            :class="['p-datatable-sm master-table', { 'compressed-mode': store.isCompressed }]"
-        >
+        <div ref="tableHostRef" class="min-h-0">
+            <DataTable
+                ref="tableRef"
+                :value="scheduleData"
+                :loading="store.loading"
+                stripedRows
+                scrollable
+                :scrollHeight="tableScrollHeight"
+                :virtualScrollerOptions="virtualScrollerOptions"
+                :tableStyle="store.isCompressed ? 'min-width: 70rem; table-layout: fixed' : 'min-width: 80rem; table-layout: fixed'"
+                :class="['p-datatable-sm master-table', { 'compressed-mode': store.isCompressed }]"
+            >
             <template #empty>
                 <div class="py-20 text-center">
                     <i class="pi pi-inbox text-5xl text-gray-200 dark:text-gray-700 mb-4"></i>
@@ -241,7 +274,8 @@ onBeforeUnmount(() => {
                     />
                 </template>
             </Column>
-        </DataTable>
+            </DataTable>
+        </div>
     </div>
 
     <!-- Unplaced Dialog -->
