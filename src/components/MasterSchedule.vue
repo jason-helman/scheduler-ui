@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, shallowRef, onBeforeUnmount } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Badge from 'primevue/badge'
@@ -12,7 +12,10 @@ import { transformScheduleData, transformPeriods } from '../utils/scheduleTransf
 
 const showUnplacedDialog = ref(false)
 const selectedTeacherIdForUnplaced = ref(null)
-const hoveredSection = ref(null)
+const hoveredSection = shallowRef(null)
+const hoveredSectionKey = ref(null)
+let hoverRafId = null
+let nextHoveredSection = null
 
 const formatTime = (timeStr) => {
     if (!timeStr) return ''
@@ -28,6 +31,13 @@ const periods = computed(() => transformPeriods(store.localDataset?.scheduleStru
 
 // Transform raw sections from local dataset into the teacher-grouped view with intelligent layers
 const scheduleData = computed(() => transformScheduleData(store.localDataset))
+const rowItemSize = computed(() => (store.isCompressed ? 264 : 354))
+const virtualScrollerOptions = computed(() => ({
+    itemSize: rowItemSize.value,
+    numToleratedItems: 16,
+    delay: 30,
+    showLoader: false
+}))
 
 const openUnplacedSections = (teacher) => {
     if (teacher.unplacedSections && teacher.unplacedSections.length > 0) {
@@ -35,6 +45,37 @@ const openUnplacedSections = (teacher) => {
         showUnplacedDialog = true
     }
 }
+
+const getHoverKey = (section) => {
+    if (!section) return null
+    return `${section.sectionId ?? ''}:${section.spanId ?? ''}:${section.parentSectionId ?? ''}`
+}
+
+const applyHoveredSection = () => {
+    hoverRafId = null
+    const key = getHoverKey(nextHoveredSection)
+    if (key === hoveredSectionKey.value) return
+    hoveredSection.value = nextHoveredSection
+    hoveredSectionKey.value = key
+}
+
+const scheduleHoveredSectionUpdate = (section) => {
+    nextHoveredSection = section
+    if (hoverRafId != null) return
+    hoverRafId = requestAnimationFrame(applyHoveredSection)
+}
+
+const setHoveredSection = (section) => {
+    scheduleHoveredSectionUpdate(section)
+}
+
+const clearHoveredSection = () => {
+    scheduleHoveredSectionUpdate(null)
+}
+
+onBeforeUnmount(() => {
+    if (hoverRafId != null) cancelAnimationFrame(hoverRafId)
+})
 </script>
 
 <template>
@@ -53,7 +94,16 @@ const openUnplacedSections = (teacher) => {
             </div>
         </div>
         
-        <DataTable :value="scheduleData" :loading="store.loading" stripedRows scrollable scrollHeight="65vh" :tableStyle="store.isCompressed ? 'min-width: 70rem; table-layout: fixed' : 'min-width: 80rem; table-layout: fixed'" :class="['p-datatable-sm master-table', { 'compressed-mode': store.isCompressed }]">
+        <DataTable
+            :value="scheduleData"
+            :loading="store.loading"
+            stripedRows
+            scrollable
+            scrollHeight="65vh"
+            :virtualScrollerOptions="virtualScrollerOptions"
+            :tableStyle="store.isCompressed ? 'min-width: 70rem; table-layout: fixed' : 'min-width: 80rem; table-layout: fixed'"
+            :class="['p-datatable-sm master-table', { 'compressed-mode': store.isCompressed }]"
+        >
             <template #empty>
                 <div class="py-20 text-center">
                     <i class="pi pi-inbox text-5xl text-gray-200 dark:text-gray-700 mb-4"></i>
@@ -95,8 +145,8 @@ const openUnplacedSections = (teacher) => {
                         :teacher="slotProps.data" 
                         :period-id="p.coursePeriodId" 
                         :hovered-section="hoveredSection"
-                        @hover="s => hoveredSection = s"
-                        @leave="() => hoveredSection = null"
+                        @hover="setHoveredSection"
+                        @leave="clearHoveredSection"
                         @toggle-lock="id => store.toggleLock(id)"
                     />
                 </template>
@@ -158,6 +208,11 @@ const openUnplacedSections = (teacher) => {
 :deep(.p-datatable-tbody > tr > td) {
     padding: 0 !important;
 }
+
+:deep(.p-virtualscroller-content),
+:deep(.p-virtualscroller-spacer) {
+    background-color: #ffffff !important;
+}
 </style>
 
 <style>
@@ -172,5 +227,10 @@ const openUnplacedSections = (teacher) => {
 .my-app-dark .master-table .p-datatable-tbody > tr > td.p-frozen-column {
     border-right: 3px solid #334155 !important;
     box-shadow: 4px 0 12px -4px rgba(0,0,0,0.5);
+}
+
+.my-app-dark .master-table .p-virtualscroller-content,
+.my-app-dark .master-table .p-virtualscroller-spacer {
+    background-color: #0f172a !important;
 }
 </style>

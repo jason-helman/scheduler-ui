@@ -14,6 +14,55 @@ export function isRelatedSection(section, target) {
     return !!isSubsectionRel
 }
 
+const datasetIndexCache = new WeakMap()
+
+function getCachedIndexes(localDataset) {
+    if (!localDataset || typeof localDataset !== 'object') {
+        return { studentById: new Map(), courseById: new Map() }
+    }
+
+    const cached = datasetIndexCache.get(localDataset)
+    if (
+        cached &&
+        cached.studentsRef === localDataset.students &&
+        cached.coursesRef === localDataset.courses
+    ) {
+        return cached
+    }
+
+    const studentById = new Map()
+    if (Array.isArray(localDataset.students)) {
+        localDataset.students.forEach(s => {
+            const id = s.studentId || s.student_id || s.id
+            if (id != null) studentById.set(String(id), s)
+        })
+    }
+
+    const courseById = new Map()
+    if (Array.isArray(localDataset.courses)) {
+        localDataset.courses.forEach(c => {
+            if (c?.courseId != null) courseById.set(c.courseId, c)
+        })
+    }
+
+    const indexes = {
+        studentsRef: localDataset.students,
+        coursesRef: localDataset.courses,
+        studentById,
+        courseById
+    }
+    datasetIndexCache.set(localDataset, indexes)
+    return indexes
+}
+
+export function getStudentByIdMap(localDataset) {
+    return getCachedIndexes(localDataset).studentById
+}
+
+export function getCourseByIdMap(localDataset) {
+    return getCachedIndexes(localDataset).courseById
+}
+
 export function getHighlightClass(section, target) {
     if (!target) return ''
     

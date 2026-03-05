@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { store } from '../store'
 import Dialog from 'primevue/dialog'
 import CopyButton from './CopyButton.vue'
-import { getHighlightClass } from '../utils/scheduleHelpers'
+import { getCourseByIdMap, getHighlightClass, getStudentByIdMap } from '../utils/scheduleHelpers'
 
 const props = defineProps({
     section: Object,
@@ -17,16 +17,11 @@ const scheduledStudents = computed(() => {
     const sectionStudentIds = props.section.scheduledStudentIds || props.section.scheduled_student_ids || []
     if (!store.localDataset || !Array.isArray(store.localDataset.students) || sectionStudentIds.length === 0) return []
 
-    // O(1) lookup map across mixed id shapes and number/string keys
-    const studentMap = {}
-    store.localDataset.students.forEach(s => {
-        const id = s.studentId || s.student_id || s.id
-        if (id != null) studentMap[String(id)] = s
-    })
+    const studentById = getStudentByIdMap(store.localDataset)
 
     return sectionStudentIds
         .map(id => {
-            const student = studentMap[String(id)]
+            const student = studentById.get(String(id))
             if (!student) return null
 
             const displayName =
@@ -39,8 +34,47 @@ const scheduledStudents = computed(() => {
             return { ...student, _displayName: displayName }
         })
         .filter(Boolean)
-        .sort((a, b) => a._displayName.localeCompare(b._displayName))
 })
+
+const enrolledCount = computed(() => Number(props.section.student_count ?? scheduledStudents.value.length ?? 0))
+
+const courseCapacity = computed(() => {
+    if (!store.localDataset) return null
+    const course = getCourseByIdMap(store.localDataset).get(props.section.courseId)
+    return Number(course?.capacity) || null
+})
+
+const isLunchSection = computed(() => {
+    if (props.section.isLunchCourse != null) return !!props.section.isLunchCourse
+    if (!store.localDataset) return false
+    const course = getCourseByIdMap(store.localDataset).get(props.section.courseId)
+    return !!course?.isLunchCourse
+})
+
+const seatUtilization = computed(() => {
+    if (!courseCapacity.value) return null
+    return Math.round((enrolledCount.value / courseCapacity.value) * 100)
+})
+
+const hasCapacityRisk = computed(() => {
+    if (!courseCapacity.value) return false
+    return enrolledCount.value > courseCapacity.value
+})
+
+const quickFlags = computed(() => {
+    const flags = []
+    const hasMultiPeriodSpan = Array.isArray(props.section.coursePeriodIds) && props.section.coursePeriodIds.length > 1
+    if (isLunchSection.value) flags.push({ key: 'lunch', label: 'Lunch', tone: 'orange' })
+    if (props.section.isLab) flags.push({ key: 'lab', label: 'Lab', tone: 'emerald' })
+    if (props.section.isInclusion) flags.push({ key: 'inclusion', label: 'Inclusion', tone: 'violet' })
+    if (props.section.spanId || hasMultiPeriodSpan) flags.push({ key: 'span', label: 'Span', tone: 'sky' })
+    if (props.section.parentSectionId) flags.push({ key: 'sub', label: 'Subsection', tone: 'indigo' })
+    if (props.section.locked) flags.push({ key: 'locked', label: 'Locked', tone: 'amber' })
+    return flags
+})
+
+const previewStudents = computed(() => scheduledStudents.value.slice(0, 2))
+const hiddenPreviewCount = computed(() => Math.max(0, scheduledStudents.value.length - previewStudents.value.length))
 </script>
 
 <template>
@@ -51,7 +85,7 @@ const scheduledStudents = computed(() => {
             gridRow: `${section.startQ} / ${section.endQ + 1}`
          }"
          :class="[
-            'border bg-white dark:bg-gray-900 shadow-sm transition-all duration-200 hover:shadow-2xl hover:shadow-blue-500/30 flex flex-col justify-between overflow-hidden z-10 w-full h-full min-h-0 group/segment relative hover:z-[200] cursor-default ring-inset hover:ring-2 hover:ring-blue-500/50',
+            'border bg-white dark:bg-gray-900 shadow-sm transition-shadow duration-75 hover:shadow-md flex flex-col justify-between overflow-hidden z-10 w-full h-full min-h-0 group/segment relative hover:z-[200] cursor-default ring-inset hover:ring-2 hover:ring-blue-500/40',
             store.isCompressed ? 'p-1.5 rounded-lg' : 'p-2.5 rounded-xl',
             section.locked ? 'border-amber-200 dark:border-amber-900/50 bg-amber-50/30 dark:bg-amber-900/10' : 'border-gray-100 dark:border-gray-700',
             section.isLab ? 'is-lab' : '',
@@ -85,9 +119,61 @@ const scheduledStudents = computed(() => {
                    v-tooltip.top="section.locked ? 'Unlock Placement' : 'Lock Placement'"></i>
             </div>
             
-            <div v-if="section.quarterCount > 1 || section.days" class="text-[8px] text-gray-400 font-black space-y-0.5 mb-1.5 shrink-0">
-                <div v-if="section.quarterCount > 1">Q: {{ section.quarters }}</div>
-                <div v-if="section.days" class="text-emerald-500 dark:text-emerald-400">D: {{ section.days }}</div>
+            <div class="space-y-1.5 mt-1 mb-1.5 shrink-0">
+                <div class="flex flex-wrap gap-1">
+                    <span
+                        v-if="section.quarters"
+                        class="px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300"
+                    >
+                        Q {{ section.quarters }}
+                    </span>
+                    <span
+                        v-if="section.days"
+                        class="px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300"
+                    >
+                        D {{ section.days }}
+                    </span>
+                    <span
+                        v-for="flag in quickFlags"
+                        :key="flag.key"
+                        :class="[
+                            'px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider',
+                            flag.tone === 'emerald' ? 'bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300' : '',
+                            flag.tone === 'orange' ? 'bg-orange-100/80 dark:bg-orange-900/30 text-orange-600 dark:text-orange-300' : '',
+                            flag.tone === 'violet' ? 'bg-violet-100/70 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300' : '',
+                            flag.tone === 'sky' ? 'bg-sky-100/70 dark:bg-sky-900/30 text-sky-600 dark:text-sky-300' : '',
+                            flag.tone === 'indigo' ? 'bg-indigo-100/70 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300' : '',
+                            flag.tone === 'amber' ? 'bg-amber-100/70 dark:bg-amber-900/30 text-amber-600 dark:text-amber-300' : ''
+                        ]"
+                    >
+                        {{ flag.label }}
+                    </span>
+                </div>
+
+                <div class="flex items-center justify-between text-[7px] font-bold">
+                    <span class="text-slate-400 dark:text-slate-500 uppercase tracking-wider">Seats</span>
+                    <span
+                        :class="[
+                            hasCapacityRisk ? 'text-red-500 dark:text-red-400' : 'text-slate-500 dark:text-slate-300'
+                        ]"
+                    >
+                        {{ enrolledCount }}<template v-if="courseCapacity">/{{ courseCapacity }}</template>
+                        <template v-if="seatUtilization != null"> · {{ seatUtilization }}%</template>
+                    </span>
+                </div>
+
+                <div v-if="!store.isCompressed" class="space-y-0.5">
+                    <div
+                        v-for="st in previewStudents"
+                        :key="st.studentId || st.student_id || st.id || st._displayName"
+                        class="truncate text-[7px] font-semibold text-slate-500 dark:text-slate-300"
+                    >
+                        {{ st._displayName }}
+                    </div>
+                    <div v-if="hiddenPreviewCount > 0" class="text-[7px] font-black text-blue-500 dark:text-blue-300 uppercase tracking-wider">
+                        +{{ hiddenPreviewCount }} more
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -112,6 +198,7 @@ const scheduledStudents = computed(() => {
     </div>
 
     <Dialog
+        v-if="showStudentsDialog"
         v-model:visible="showStudentsDialog"
         modal
         :header="`${section.course_name} · Students`"
@@ -150,7 +237,7 @@ const scheduledStudents = computed(() => {
     border-color: #3b82f6 !important;
     background-color: #eff6ff !important;
     z-index: 20 !important;
-    box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.4) !important;
+    box-shadow: 0 4px 12px -4px rgba(59, 130, 246, 0.35) !important;
 }
 
 .my-app-dark .highlight-primary {
@@ -162,12 +249,12 @@ const scheduledStudents = computed(() => {
     border-color: #10b981 !important;
     background-color: #ecfdf5 !important;
     z-index: 20 !important;
-    box-shadow: 0 0 20px 5px rgba(16, 185, 129, 0.5) !important;
+    box-shadow: 0 4px 12px -4px rgba(16, 185, 129, 0.35) !important;
 }
 
 .my-app-dark .highlight-lab {
     background-color: #064e3b !important;
-    box-shadow: 0 0 25px 8px rgba(16, 185, 129, 0.3) !important;
+    box-shadow: 0 4px 14px -4px rgba(16, 185, 129, 0.28) !important;
 }
 
 .highlight-subsection {
@@ -175,7 +262,7 @@ const scheduledStudents = computed(() => {
     border-color: #6366f1 !important;
     background-color: #eef2ff !important;
     z-index: 20 !important;
-    box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.4) !important;
+    box-shadow: 0 4px 12px -4px rgba(99, 102, 241, 0.35) !important;
 }
 
 .my-app-dark .highlight-subsection {

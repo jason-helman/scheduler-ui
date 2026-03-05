@@ -20,6 +20,28 @@ const layers = computed(() => {
     return props.teacher.periodLayers?.['period_' + props.periodId] || []
 })
 
+const layerRelationIndex = computed(() => {
+    const bySectionId = new Map()
+    const bySpanId = new Map()
+    const byParentSectionId = new Map()
+
+    layers.value.forEach((layer, layerIdx) => {
+        layer.forEach(section => {
+            if (section.sectionId != null && !bySectionId.has(section.sectionId)) {
+                bySectionId.set(section.sectionId, layerIdx)
+            }
+            if (section.spanId != null && !bySpanId.has(section.spanId)) {
+                bySpanId.set(section.spanId, layerIdx)
+            }
+            if (section.parentSectionId != null && !byParentSectionId.has(section.parentSectionId)) {
+                byParentSectionId.set(section.parentSectionId, layerIdx)
+            }
+        })
+    })
+
+    return { bySectionId, bySpanId, byParentSectionId }
+})
+
 const nextLayer = (total) => {
     userSelectedLayerIndex.value = (userSelectedLayerIndex.value + 1) % total
     currentLayerIndex.value = userSelectedLayerIndex.value
@@ -33,23 +55,40 @@ const prevLayer = (total) => {
 // Watch for hover changes to temporarily switch layers
 watch(() => props.hoveredSection, (newTarget) => {
     if (!newTarget) {
-        currentLayerIndex.value = userSelectedLayerIndex.value
+        if (currentLayerIndex.value !== userSelectedLayerIndex.value) {
+            currentLayerIndex.value = userSelectedLayerIndex.value
+        }
         return
     }
 
-    // Check if any layer contains a related section
-    for (let i = 0; i < layers.value.length; i++) {
-        const layer = layers.value[i]
-        const hasRelated = layer.some(section => isRelatedSection(section, newTarget))
-        
-        if (hasRelated) {
-            currentLayerIndex.value = i
+    const { bySectionId, bySpanId, byParentSectionId } = layerRelationIndex.value
+
+    const relationCandidates = [
+        bySectionId.get(newTarget.sectionId),
+        newTarget.spanId != null ? bySpanId.get(newTarget.spanId) : undefined,
+        byParentSectionId.get(newTarget.sectionId),
+        newTarget.parentSectionId != null ? bySectionId.get(newTarget.parentSectionId) : undefined,
+        newTarget.parentSectionId != null ? byParentSectionId.get(newTarget.parentSectionId) : undefined
+    ]
+
+    for (const idx of relationCandidates) {
+        if (Number.isInteger(idx)) {
+            if (currentLayerIndex.value !== idx) currentLayerIndex.value = idx
             return
         }
     }
-    
-    // If no related section found in any layer, stay on user's selected layer
-    currentLayerIndex.value = userSelectedLayerIndex.value
+
+    // Safety fallback for any relationship shape not indexed above
+    for (let i = 0; i < layers.value.length; i++) {
+        if (layers.value[i].some(section => isRelatedSection(section, newTarget))) {
+            if (currentLayerIndex.value !== i) currentLayerIndex.value = i
+            return
+        }
+    }
+
+    if (currentLayerIndex.value !== userSelectedLayerIndex.value) {
+        currentLayerIndex.value = userSelectedLayerIndex.value
+    }
 })
 </script>
 
