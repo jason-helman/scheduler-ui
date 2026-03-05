@@ -207,7 +207,8 @@ export default defineConfig({
               days: lunchDays.filter(ld => ld.lunch_id === l.lunch_id).map(ld => ld.day)
             })),
             settings: settings[0] ? {
-              maxInARow: settings[0].max_classes_in_a_row
+              maxInARow: settings[0].max_classes_in_a_row,
+              diagnosticsMode: 'trace',
             } : undefined
           };
         }

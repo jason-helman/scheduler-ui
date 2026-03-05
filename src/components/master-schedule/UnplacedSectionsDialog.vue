@@ -62,7 +62,12 @@ const goToDiagnostics = (section) => {
 
 const getDiagnosticCount = (sectionId) => {
     if (!store.diagnostics?.sectionPlacement) return 0
-    return store.diagnostics.sectionPlacement.filter(d => d.entityId === sectionId && d.entityType === 'section').length
+    return store.diagnostics.sectionPlacement.filter(
+        d =>
+            d.entityId === sectionId &&
+            d.entityType === 'section' &&
+            ['fatal', 'skip', 'blocking', 'preserved_conflict'].includes(d.severity)
+    ).length
 }
 </script>
 
