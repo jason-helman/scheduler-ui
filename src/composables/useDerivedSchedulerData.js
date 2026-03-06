@@ -101,6 +101,7 @@ const deriveReportData = (dataset) => {
             courseStats: [],
             teacherLoad: [],
             roomUsage: [],
+            periodLoad: [],
             sectionsWithoutRoom: [],
             studentStats: [],
             studentSeats: 0
@@ -185,6 +186,87 @@ const deriveReportData = (dataset) => {
     ;(dataset.coursePeriods || []).forEach((cp) => {
         periodMap[cp.coursePeriodId] = cp.name
     })
+
+    const periodLoadMap = {}
+    const ensurePeriodRow = (periodId) => {
+        if (!periodLoadMap[periodId]) {
+            const structure = (dataset.scheduleStructure || []).find((ss) => String(ss.coursePeriodId) === String(periodId)) || {}
+            periodLoadMap[periodId] = {
+                periodId,
+                name: periodMap[periodId] || structure.name || structure.period_name || `P${periodId}`,
+                startTime: structure.startTime || structure.start_time || null,
+                endTime: structure.endTime || structure.end_time || null,
+                totalSections: 0,
+                placedSections: 0,
+                unplacedSections: 0,
+                locked: 0,
+                labs: 0,
+                inclusion: 0,
+                students: 0,
+                teachers: new Set(),
+                rooms: new Set()
+            }
+        }
+        return periodLoadMap[periodId]
+    }
+
+    ;(dataset.coursePeriods || []).forEach((cp) => {
+        ensurePeriodRow(cp.coursePeriodId)
+    })
+    ;(dataset.scheduleStructure || []).forEach((ss) => {
+        ensurePeriodRow(ss.coursePeriodId)
+    })
+
+    sections.forEach((s) => {
+        const periodIds = s.coursePeriodIds || []
+        if (!Array.isArray(periodIds) || periodIds.length === 0) return
+
+        const isPlaced = isPlacedSection(s) && Boolean(s.quartersDays && s.quartersDays.length > 0)
+        const seatCount = Number(s.student_count || 0)
+
+        periodIds.forEach((pid) => {
+            const row = ensurePeriodRow(pid)
+            row.totalSections += 1
+            if (isPlaced) row.placedSections += 1
+            else row.unplacedSections += 1
+            if (s.locked) row.locked += 1
+            if (s.isLab) row.labs += 1
+            if (s.isInclusion) row.inclusion += 1
+            row.students += seatCount
+            if (s.teacherId != null) row.teachers.add(String(s.teacherId))
+            if (s.classroomId != null) row.rooms.add(String(s.classroomId))
+        })
+    })
+
+    const periodLoadRows = Object.values(periodLoadMap)
+        .sort((a, b) => {
+            const aTime = String(a.startTime || '')
+            const bTime = String(b.startTime || '')
+            const timeDelta = aTime.localeCompare(bTime)
+            if (timeDelta !== 0) return timeDelta
+            return Number(a.periodId) - Number(b.periodId)
+        })
+        .map((row) => ({
+            periodId: row.periodId,
+            name: row.name,
+            startTime: row.startTime,
+            endTime: row.endTime,
+            totalSections: row.totalSections,
+            placedSections: row.placedSections,
+            unplacedSections: row.unplacedSections,
+            locked: row.locked,
+            labs: row.labs,
+            inclusion: row.inclusion,
+            students: row.students,
+            teacherCount: row.teachers.size,
+            roomCount: row.rooms.size
+        }))
+    const maxPlacedSections = periodLoadRows.reduce((max, row) => Math.max(max, row.placedSections), 0)
+    const periodLoad = periodLoadRows.map((row) => ({
+        ...row,
+        relativeLoadPct: maxPlacedSections > 0 ? Math.round((row.placedSections / maxPlacedSections) * 100) : 0
+    }))
+
     const sectionsWithoutRoom = sections
         .filter((s) => isPlacedSection(s) && !s.classroomId)
         .map((s) => ({
@@ -256,6 +338,7 @@ const deriveReportData = (dataset) => {
         courseStats: courseRows.sort((a, b) => String(a.name).localeCompare(String(b.name)) || String(a.type).localeCompare(String(b.type))),
         teacherLoad: Object.values(teacherMap).sort((a, b) => b.total - a.total),
         roomUsage: Object.values(roomMap).sort((a, b) => b.assignedPeriods - a.assignedPeriods),
+        periodLoad,
         sectionsWithoutRoom,
         studentStats: Object.values(studentGradeMap).sort((a, b) => String(a.grade).localeCompare(String(b.grade))),
         studentSeats: totalStudentSeats
@@ -421,6 +504,7 @@ export function useDerivedSchedulerData() {
         courseStats: computed(() => reportDerived.value.courseStats),
         teacherLoad: computed(() => reportDerived.value.teacherLoad),
         roomUsage: computed(() => reportDerived.value.roomUsage),
+        periodLoad: computed(() => reportDerived.value.periodLoad),
         sectionsWithoutRoom: computed(() => reportDerived.value.sectionsWithoutRoom),
         studentStats: computed(() => reportDerived.value.studentStats),
         studentSeats: computed(() => reportDerived.value.studentSeats),

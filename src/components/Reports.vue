@@ -12,6 +12,7 @@ import CourseReport from './reports/CourseReport.vue'
 import TeacherReport from './reports/TeacherReport.vue'
 import RoomReport from './reports/RoomReport.vue'
 import StudentReport from './reports/StudentReport.vue'
+import PeriodLoadReport from './reports/PeriodLoadReport.vue'
 
 const { reportStats: stats } = useDerivedSchedulerData()
 </script>
@@ -105,6 +106,7 @@ const { reportStats: stats } = useDerivedSchedulerData()
                     <Tab value="1">Teachers</Tab>
                     <Tab value="2">Classrooms</Tab>
                     <Tab value="3">Students</Tab>
+                    <Tab value="4">Period Load</Tab>
                 </TabList>
                 <TabPanels class="min-h-0 flex-1 overflow-hidden">
                     <TabPanel value="0" class="h-full min-h-0 overflow-hidden !p-0">
@@ -118,6 +120,9 @@ const { reportStats: stats } = useDerivedSchedulerData()
                     </TabPanel>
                     <TabPanel value="3" class="h-full min-h-0 overflow-hidden !p-0">
                         <StudentReport />
+                    </TabPanel>
+                    <TabPanel value="4" class="h-full min-h-0 overflow-hidden !p-0">
+                        <PeriodLoadReport />
                     </TabPanel>
                 </TabPanels>
             </Tabs>
