@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Tag from 'primevue/tag'
@@ -67,6 +67,14 @@ const props = defineProps({
     activeSectionDiagnosticTab: {
         type: String,
         required: true
+    },
+    scrollToSectionId: {
+        type: [String, Number],
+        default: null
+    },
+    scrollRequestKey: {
+        type: Number,
+        default: 0
     }
 })
 
@@ -97,6 +105,65 @@ const sectionTableVirtualScrollerOptions = {
     delay: 0,
     showLoader: false
 }
+
+const unplacedTableRef = ref(null)
+const placedTableRef = ref(null)
+
+const rowClass = (data) => 'diag-section-row diag-section-row--' + String(data.sectionId)
+
+const scrollToTargetSection = async () => {
+    if (props.scrollToSectionId == null) return
+
+    const targetId = String(props.scrollToSectionId)
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+        await nextTick()
+
+        const tableRef = activeSectionListTabModel.value === '1' ? placedTableRef.value : unplacedTableRef.value
+        if (!tableRef) {
+            await new Promise((resolve) => setTimeout(resolve, 30))
+            continue
+        }
+
+        const root = tableRef.$el || tableRef
+        if (!root) {
+            await new Promise((resolve) => setTimeout(resolve, 30))
+            continue
+        }
+
+        const renderedRow = root.querySelector('.diag-section-row--' + targetId)
+        if (renderedRow) {
+            renderedRow.scrollIntoView({ block: 'center', inline: 'nearest' })
+            return
+        }
+
+        const processedRows = tableRef.processedData || []
+        const targetIndex = processedRows.findIndex((row) => String(row.sectionId) === targetId)
+
+        if (targetIndex >= 0) {
+            const virtualScroller = tableRef.getVirtualScrollerRef?.()
+            if (virtualScroller?.scrollToIndex) {
+                virtualScroller.scrollToIndex(targetIndex)
+                virtualScroller.scrollInView?.(targetIndex, 'to-start')
+            }
+
+            const vsEl = root.querySelector('.p-virtualscroller, [data-pc-name="virtualscroller"]')
+            if (vsEl) {
+                vsEl.scrollTop = Math.max(0, targetIndex * sectionTableVirtualScrollerOptions.itemSize)
+            }
+        }
+
+        await new Promise((resolve) => requestAnimationFrame(resolve))
+    }
+}
+
+watch(() => props.scrollRequestKey, (requestKey) => {
+    if (!requestKey) return
+
+    scrollToTargetSection()
+    setTimeout(() => scrollToTargetSection(), 80)
+    setTimeout(() => scrollToTargetSection(), 220)
+}, { immediate: true, flush: 'post' })
 </script>
 
 <template>
@@ -120,6 +187,7 @@ const sectionTableVirtualScrollerOptions = {
                 <TabPanels class="min-h-0 flex-1 overflow-hidden">
                     <TabPanel value="0" class="h-full min-h-0 overflow-hidden !p-0">
                         <DataTable
+                            ref="unplacedTableRef"
                             v-model:selection="selectedSectionModel"
                             :value="unplacedSectionRows"
                             selectionMode="single"
@@ -127,6 +195,7 @@ const sectionTableVirtualScrollerOptions = {
                             class="p-datatable-sm"
                             sortField="course_name"
                             :sortOrder="1"
+                            :rowClass="rowClass"
                             dataKey="sectionId"
                             scrollable
                             scrollHeight="flex"
@@ -149,6 +218,7 @@ const sectionTableVirtualScrollerOptions = {
                     </TabPanel>
                     <TabPanel value="1" class="h-full min-h-0 overflow-hidden !p-0">
                         <DataTable
+                            ref="placedTableRef"
                             v-model:selection="selectedSectionModel"
                             :value="placedSectionRows"
                             selectionMode="single"
@@ -156,6 +226,7 @@ const sectionTableVirtualScrollerOptions = {
                             class="p-datatable-sm"
                             sortField="course_name"
                             :sortOrder="1"
+                            :rowClass="rowClass"
                             dataKey="sectionId"
                             scrollable
                             scrollHeight="flex"

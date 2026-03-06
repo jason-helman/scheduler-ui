@@ -18,6 +18,8 @@ const selectedSection = ref(null)
 const activeDiagnosticsTab = ref('0')
 const activeSectionListTab = ref('0')
 const activeSectionDiagnosticTab = ref('0')
+const sectionScrollRequestKey = ref(0)
+const suppressScrollRequestFromLocalSelection = ref(false)
 
 const {
     validationDiagnostics,
@@ -73,14 +75,25 @@ watch([() => store.selectedSectionId, sectionRows], ([newId, sections]) => {
             activeSectionListTab.value = found.isPlaced ? '1' : '0'
             consumeTargetSectionTab()
         }
-        if (found && !idsEqual(selectedSection.value?.sectionId, newId)) {
-            selectedSection.value = found
+        if (found) {
+            const isLocalSelectionEcho = suppressScrollRequestFromLocalSelection.value && idsEqual(selectedSection.value?.sectionId, newId)
+
+            if (!idsEqual(selectedSection.value?.sectionId, newId)) {
+                selectedSection.value = found
+            }
+
+            if (isLocalSelectionEcho) {
+                suppressScrollRequestFromLocalSelection.value = false
+            } else {
+                sectionScrollRequestKey.value += 1
+            }
         }
     }
 }, { immediate: true })
 
 watch(selectedSection, (newSection, oldSection) => {
     if (newSection && !idsEqual(store.selectedSectionId, newSection.sectionId)) {
+        suppressScrollRequestFromLocalSelection.value = true
         store.selectedSectionId = newSection.sectionId
     }
     if (newSection) {
@@ -150,6 +163,8 @@ watch(selectedSection, (newSection, oldSection) => {
                                 :resolve-id-name="resolveIdName"
                                 :active-section-list-tab="activeSectionListTab"
                                 :active-section-diagnostic-tab="activeSectionDiagnosticTab"
+                                :scroll-to-section-id="selectedSection?.sectionId ?? null"
+                                :scroll-request-key="sectionScrollRequestKey"
                                 @update:selectedSection="selectedSection = $event"
                                 @update:activeSectionListTab="activeSectionListTab = $event"
                                 @update:activeSectionDiagnosticTab="activeSectionDiagnosticTab = $event"
