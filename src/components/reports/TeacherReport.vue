@@ -23,6 +23,8 @@ const tableVirtualScrollerOptions = {
             :value="teacherLoad"
             stripedRows
             class="p-datatable-sm"
+            sortField="name"
+            :sortOrder="1"
             scrollable
             scrollHeight="flex"
             :virtualScrollerOptions="tableVirtualScrollerOptions"

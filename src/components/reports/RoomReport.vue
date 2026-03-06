@@ -40,6 +40,8 @@ const usageTableVirtualScrollerOptions = {
                         :value="roomUsage"
                         stripedRows
                         class="p-datatable-sm"
+                        sortField="name"
+                        :sortOrder="1"
                         scrollable
                         scrollHeight="flex"
                         :virtualScrollerOptions="usageTableVirtualScrollerOptions"
@@ -68,6 +70,8 @@ const usageTableVirtualScrollerOptions = {
                         :value="sectionsWithoutRoom"
                         stripedRows
                         class="p-datatable-sm"
+                        sortField="course_name"
+                        :sortOrder="1"
                         paginator
                         :rows="100"
                         :rowsPerPageOptions="[50, 100, 250]"
@@ -80,8 +84,8 @@ const usageTableVirtualScrollerOptions = {
                             </template>
                         </Column>
                         <Column field="courseCode" header="Code" class="font-mono text-xs" style="width: 10%"></Column>
-                        <Column field="course_name" header="Course Name" class="font-bold" style="width: 25%"></Column>
-                        <Column field="teacher_name" header="Teacher" style="width: 20%"></Column>
+                        <Column field="course_name" header="Course Name" sortable class="font-bold" style="width: 25%"></Column>
+                        <Column field="teacher_name" header="Teacher" sortable style="width: 20%"></Column>
                         <Column field="periodNames" header="Periods" style="width: 15%"></Column>
                         <Column field="quarters" header="Quarters" style="width: 10%"></Column>
                         <Column field="days" header="Days" style="width: 10%"></Column>

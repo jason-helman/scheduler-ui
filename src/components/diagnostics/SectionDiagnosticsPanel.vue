@@ -126,6 +126,8 @@ const sectionTableVirtualScrollerOptions = {
                             selectionMode="single"
                             stripedRows
                             class="p-datatable-sm"
+                            sortField="course_name"
+                            :sortOrder="1"
                             dataKey="sectionId"
                             scrollable
                             scrollHeight="flex"
@@ -154,6 +156,8 @@ const sectionTableVirtualScrollerOptions = {
                             selectionMode="single"
                             stripedRows
                             class="p-datatable-sm"
+                            sortField="course_name"
+                            :sortOrder="1"
                             dataKey="sectionId"
                             scrollable
                             scrollHeight="flex"
