@@ -25,6 +25,7 @@ const DECISION_CODES = new Set([
 ])
 
 const isActionableSeverity = (severity) => ['fatal', 'skip', 'blocking', 'preserved_conflict'].includes(severity)
+const isValidationIssueSeverity = (severity) => ['fatal', 'skip', 'blocking'].includes(severity)
 
 const sectionPlacementDiagnostics = computed(() => store.diagnostics?.sectionPlacement || [])
 const validationDiagnostics = computed(() => store.diagnostics?.validation || [])
@@ -109,6 +110,9 @@ const allDiagnostics = computed(() => {
 
 const systemAndDecisionDiagnostics = computed(() =>
     allDiagnostics.value.filter(d => d.entityType === 'system' || DECISION_CODES.has(d.code))
+)
+const validationIssueCount = computed(() =>
+    validationDiagnostics.value.filter((d) => isValidationIssueSeverity(d.severity)).length
 )
 
 const diagnosticScopeIndex = shallowRef(new WeakMap())
@@ -341,6 +345,10 @@ watch(selectedSection, (newSection, oldSection) => {
                     <Tab value="1">
                         System & Decision
                         <Badge class="ml-2" :value="systemAndDecisionDiagnostics.length" severity="info" />
+                    </Tab>
+                    <Tab value="2">
+                        Validation
+                        <Badge class="ml-2" :value="validationIssueCount" :severity="validationIssueCount > 0 ? 'danger' : 'secondary'" />
                     </Tab>
                 </TabList>
                 <TabPanels>
@@ -607,6 +615,54 @@ watch(selectedSection, (newSection, oldSection) => {
                                     </template>
                                 </Column>
                             </DataTable>
+                            </div>
+                        </div>
+                    </TabPanel>
+
+                    <TabPanel value="2">
+                        <div class="space-y-6">
+                            <div class="card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
+                                <div class="flex items-center justify-between mb-6 px-2">
+                                    <h3 class="text-xl font-black">Validation Diagnostics</h3>
+                                    <Badge :value="validationDiagnostics.length" :severity="validationIssueCount > 0 ? 'danger' : 'secondary'" />
+                                </div>
+                                <div v-if="validationDiagnostics.length === 0" class="p-6 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/30 dark:bg-emerald-900/5 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                                    No validation diagnostics were reported.
+                                </div>
+                                <DataTable
+                                    v-else
+                                    :value="validationDiagnostics"
+                                    stripedRows
+                                    paginator
+                                    :rows="12"
+                                    class="p-datatable-sm"
+                                    scrollable
+                                    scrollHeight="360px"
+                                >
+                                    <Column field="severity" header="Severity" sortable style="width: 8rem">
+                                        <template #body="slotProps">
+                                            <Tag
+                                                :value="slotProps.data.severity"
+                                                :severity="slotProps.data.severity === 'fatal' ? 'danger' : slotProps.data.severity === 'skip' ? 'warn' : 'secondary'"
+                                            />
+                                        </template>
+                                    </Column>
+                                    <Column field="code" header="Code" sortable style="width: 18rem" />
+                                    <Column field="entityType" header="Type" sortable style="width: 8rem" />
+                                    <Column field="entityId" header="Entity" sortable style="width: 16rem">
+                                        <template #body="slotProps">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-xs">{{ resolveIdName(slotProps.data.entityId) }}</span>
+                                                <CopyButton
+                                                    v-if="store.showIds && slotProps.data.entityId != null"
+                                                    :value="slotProps.data.entityId"
+                                                    label="Entity ID"
+                                                />
+                                            </div>
+                                        </template>
+                                    </Column>
+                                    <Column field="message" header="Message" />
+                                </DataTable>
                             </div>
                         </div>
                     </TabPanel>
