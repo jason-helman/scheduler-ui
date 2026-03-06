@@ -247,7 +247,7 @@ if (masterBadgeFitEpoch) {
         <SectionCardFooter
             :section="section"
             :is-compressed="store.isCompressed"
-            :show-diagnostics-action="!!store.diagnostics"
+            :show-diagnostics-action="!!store.localDataset?.diagnostics"
             :diagnostics-count="diagnosticsCount"
             :show-alerts-action="actionableAlertsCount > 0"
             :alerts-count="actionableAlertsCount"

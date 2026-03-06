@@ -45,21 +45,38 @@ const toggleMenu = (event) => {
     actionMenu.value.toggle(event)
 }
 
+const commitLocalDataset = (nextDataset) => {
+    store.localDataset = nextDataset
+    store.localDatasetRevision += 1
+}
+
+const clearLoadedScheduleState = () => {
+    store.selectionEpoch += 1
+    commitLocalDataset(null)
+    store.selectedSectionId = null
+    store.diagnosticsTargetSectionTab = null
+    store.diagnosticsExternalScrollKey = 0
+}
+
 const fetchData = async () => {
     if (!store.selectedSchool || !store.selectedVersion) return
     
     store.loading = true
     store.error = null
-    store.diagnostics = null
+    const requestEpoch = store.selectionEpoch
     try {
-        store.localDataset = await api.fetchFullDataset(
-            store.selectedSchool.school_id, 
+        const dataset = await api.fetchFullDataset(
+            store.selectedSchool.school_id,
             store.selectedVersion.schedule_version_id
         )
+        if (requestEpoch !== store.selectionEpoch) return
+        commitLocalDataset({ ...dataset, diagnostics: null })
     } catch (e) {
         store.error = "Failed to fetch dataset: " + e.message
     } finally {
-        store.loading = false
+        if (requestEpoch === store.selectionEpoch) {
+            store.loading = false
+        }
     }
 }
 
@@ -68,10 +85,24 @@ const runPlacement = async () => {
     
     store.loading = true
     store.error = null
-    store.diagnostics = null
+
+    const contextVersionId = store.selectedVersion?.schedule_version_id ?? null
+    const requestEpoch = store.selectionEpoch
+    const requestDataset = store.localDataset
+    const datasetForPlacement = {
+        ...requestDataset,
+        diagnostics: null
+    }
+
+    // Clear diagnostics immediately for this version while a new run is in flight.
+    commitLocalDataset(datasetForPlacement)
+
     try {
-        const result = await api.runSectionPlacement(store.localDataset)
-        
+        const result = await api.runSectionPlacement(datasetForPlacement)
+        if (requestEpoch !== store.selectionEpoch) return
+        if ((store.selectedVersion?.schedule_version_id ?? null) !== contextVersionId) return
+        if (!store.localDataset) return
+
         // Merge placement results into existing local dataset to preserve names and other metadata
         const placementMap = {}
         result.sections.forEach(ps => {
@@ -96,12 +127,8 @@ const runPlacement = async () => {
             return s
         })
 
-        // Replace sections array reference to trigger derived diagnostics recomputation
-        // without replacing the entire dataset object.
-        store.localDataset.sections = nextSections
-
         const incomingDiagnostics = result?.diagnostics || {}
-        store.diagnostics = {
+        const nextDiagnostics = {
             validation: [
                 ...(incomingDiagnostics.validation || incomingDiagnostics.validation_diagnostics || [])
             ],
@@ -112,10 +139,20 @@ const runPlacement = async () => {
                 ...(incomingDiagnostics.studentPlacement || incomingDiagnostics.student_placement || [])
             ]
         }
+
+        // Atomically replace dataset snapshot so derived diagnostics never see
+        // "new sections + old/null diagnostics" intermediate state.
+        commitLocalDataset({
+            ...store.localDataset,
+            sections: nextSections,
+            diagnostics: nextDiagnostics
+        })
     } catch (e) {
         store.error = "Failed to run placement: " + e.message
     } finally {
-        store.loading = false
+        if (requestEpoch === store.selectionEpoch) {
+            store.loading = false
+        }
     }
 }
 
@@ -133,17 +170,25 @@ const clearLocks = () => {
 }
 
 const clearPlacements = () => {
-    store.localDataset.sections.forEach(s => {
+    const nextSections = store.localDataset.sections.map(s => {
         if (!s.locked) {
-            s.classroomId = undefined;
-            s.room_name = 'N/A';
-            s.days = '';
-            s.coursePeriodIds = []
-            s.quartersDays = undefined
-            s.quarters = ""
+            return {
+                ...s,
+                classroomId: undefined,
+                room_name: 'N/A',
+                days: '',
+                coursePeriodIds: [],
+                quartersDays: undefined,
+                quarters: ""
+            }
         }
+        return s
     })
-    store.diagnostics = null
+    commitLocalDataset({
+        ...store.localDataset,
+        sections: nextSections,
+        diagnostics: null
+    })
 }
 
 const fetchSchools = async () => {
@@ -156,9 +201,9 @@ const fetchSchools = async () => {
 
 const fetchVersions = async () => {
     if (!store.selectedSchool) return
+    store.selectedVersion = null
     try {
         store.versions = await api.fetchVersions(store.selectedSchool.school_id)
-        store.selectedVersion = null
     } catch (e) {
         store.error = "Failed to fetch versions: " + e.message
     }
@@ -168,9 +213,24 @@ onMounted(() => {
     if (store.schools.length === 0) fetchSchools()
 })
 
-watch(() => store.selectedSchool, () => {
-    fetchVersions()
-})
+watch(
+    () => store.selectedSchool?.school_id ?? null,
+    (newSchoolId, oldSchoolId) => {
+        if (newSchoolId === oldSchoolId) return
+        clearLoadedScheduleState()
+        fetchVersions()
+    },
+    { flush: 'sync' }
+)
+
+watch(
+    () => store.selectedVersion?.schedule_version_id ?? null,
+    (newVersionId, oldVersionId) => {
+        if (newVersionId === oldVersionId) return
+        clearLoadedScheduleState()
+    },
+    { flush: 'sync' }
+)
 </script>
 
 <template>

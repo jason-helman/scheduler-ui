@@ -63,8 +63,8 @@ const goToDiagnostics = (section) => {
 }
 
 const getDiagnosticCount = (sectionId) => {
-    if (!store.diagnostics?.sectionPlacement) return 0
-    return store.diagnostics.sectionPlacement.filter(
+    if (!store.localDataset?.diagnostics?.sectionPlacement) return 0
+    return store.localDataset.diagnostics.sectionPlacement.filter(
         d =>
             d.entityId === sectionId &&
             d.entityType === 'section' &&

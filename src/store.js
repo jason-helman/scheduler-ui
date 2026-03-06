@@ -10,7 +10,8 @@ export const store = reactive({
     error: null,
     showIds: false,
     isCompressed: false,
-    diagnostics: null,
+    selectionEpoch: 0,
+    localDatasetRevision: 0,
     
     // Navigation state
     currentView: 'MasterSchedule',

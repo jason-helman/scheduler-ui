@@ -39,7 +39,7 @@ const {
 } = useDerivedSchedulerData()
 
 const currentSectionDiagnostics = computed(() => {
-    if (!selectedSection.value || !store.diagnostics) return []
+    if (!selectedSection.value || !store.localDataset?.diagnostics) return []
     return sectionDiagnosticsIndex.value.bySectionId.get(String(selectedSection.value.sectionId)) || []
 })
 
@@ -163,7 +163,7 @@ watch(selectedSection, (newSection, oldSection) => {
                                 :placed-section-rows="placedSectionRows"
                                 :invalid-section-rows="invalidSectionRows"
                                 :selected-section="selectedSection"
-                                :has-diagnostics="Boolean(store.diagnostics)"
+                                :has-diagnostics="Boolean(store.localDataset?.diagnostics)"
                                 :current-section-diagnostics="currentSectionDiagnostics"
                                 :current-section-failures="currentSectionFailures"
                                 :current-section-decision-diagnostics="currentSectionDecisionDiagnostics"

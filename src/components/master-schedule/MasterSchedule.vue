@@ -36,7 +36,7 @@ const ACTIONABLE_ALERT_SEVERITIES = new Set(['fatal', 'skip', 'blocking', 'prese
 const sectionDiagnosticsCounts = computed(() => {
     const totalBySectionId = new Map()
     const alertsBySectionId = new Map()
-    const diagnostics = store.diagnostics?.sectionPlacement || []
+    const diagnostics = store.localDataset?.diagnostics?.sectionPlacement || []
 
     diagnostics.forEach((d) => {
         if (d.entityType !== 'section') return
