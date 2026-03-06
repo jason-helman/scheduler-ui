@@ -90,6 +90,13 @@ const activeSectionDiagnosticTabModel = computed({
     get: () => props.activeSectionDiagnosticTab,
     set: (value) => emit('update:activeSectionDiagnosticTab', value)
 })
+
+const sectionTableVirtualScrollerOptions = {
+    itemSize: 38,
+    numToleratedItems: 12,
+    delay: 0,
+    showLoader: false
+}
 </script>
 
 <template>
@@ -122,15 +129,17 @@ const activeSectionDiagnosticTabModel = computed({
                             dataKey="sectionId"
                             scrollable
                             scrollHeight="flex"
+                            :virtualScrollerOptions="sectionTableVirtualScrollerOptions"
+                            tableStyle="min-width: 30rem; table-layout: fixed"
                         >
-                            <Column field="course_name" header="Course" sortable class="font-bold text-sm"></Column>
-                            <Column field="teacher_name" header="Teacher" sortable class="text-xs"></Column>
-                            <Column field="diagnosticCount" header="Issues" sortable style="width: 3rem">
+                            <Column field="course_name" header="Course" sortable class="font-bold text-sm" style="width: 44%"></Column>
+                            <Column field="teacher_name" header="Teacher" sortable class="text-xs" style="width: 36%"></Column>
+                            <Column field="diagnosticCount" header="Issues" sortable style="width: 5rem">
                                 <template #body="slotProps">
                                     <Badge :value="slotProps.data.diagnosticCount" :severity="slotProps.data.diagnosticCount > 0 ? 'danger' : 'secondary'"></Badge>
                                 </template>
                             </Column>
-                            <Column field="traceCount" header="Trace" sortable style="width: 3rem">
+                            <Column field="traceCount" header="Trace" sortable style="width: 5rem">
                                 <template #body="slotProps">
                                     <Badge :value="slotProps.data.traceCount" severity="info"></Badge>
                                 </template>
@@ -148,15 +157,17 @@ const activeSectionDiagnosticTabModel = computed({
                             dataKey="sectionId"
                             scrollable
                             scrollHeight="flex"
+                            :virtualScrollerOptions="sectionTableVirtualScrollerOptions"
+                            tableStyle="min-width: 30rem; table-layout: fixed"
                         >
-                            <Column field="course_name" header="Course" sortable class="font-bold text-sm"></Column>
-                            <Column field="teacher_name" header="Teacher" sortable class="text-xs"></Column>
-                            <Column field="diagnosticCount" header="Alerts" sortable style="width: 4.5rem">
+                            <Column field="course_name" header="Course" sortable class="font-bold text-sm" style="width: 44%"></Column>
+                            <Column field="teacher_name" header="Teacher" sortable class="text-xs" style="width: 36%"></Column>
+                            <Column field="diagnosticCount" header="Alerts" sortable style="width: 5rem">
                                 <template #body="slotProps">
                                     <Badge :value="slotProps.data.diagnosticCount" :severity="slotProps.data.diagnosticCount > 0 ? 'warning' : 'secondary'"></Badge>
                                 </template>
                             </Column>
-                            <Column field="traceCount" header="Trace" sortable style="width: 3rem">
+                            <Column field="traceCount" header="Trace" sortable style="width: 5rem">
                                 <template #body="slotProps">
                                     <Badge :value="slotProps.data.traceCount" severity="info"></Badge>
                                 </template>

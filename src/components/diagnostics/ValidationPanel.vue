@@ -23,6 +23,8 @@ defineProps({
         required: true
     }
 })
+
+const tableRows = 100
 </script>
 
 <template>
@@ -40,8 +42,11 @@ defineProps({
                     :value="validationDiagnostics"
                     stripedRows
                     class="p-datatable-sm h-full"
-                    scrollable
-                    scrollHeight="flex"
+                    paginator
+                    :rows="tableRows"
+                    :rowsPerPageOptions="[50, 100, 250]"
+                    paginatorTemplate="RowsPerPageDropdown PrevPageLink PageLinks NextPageLink CurrentPageReport"
+                    currentPageReportTemplate="{first}-{last} of {totalRecords}"
                 >
                     <Column field="severity" header="Severity" sortable style="width: 8rem">
                         <template #body="slotProps">

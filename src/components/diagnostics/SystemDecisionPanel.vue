@@ -22,6 +22,8 @@ defineProps({
         required: true
     }
 })
+
+const tableRows = 100
 </script>
 
 <template>
@@ -41,6 +43,12 @@ defineProps({
                     class="p-datatable-sm h-full"
                     scrollable
                     scrollHeight="flex"
+                    tableStyle="min-width: 72rem"
+                    paginator
+                    :rows="tableRows"
+                    :rowsPerPageOptions="[50, 100, 250]"
+                    paginatorTemplate="RowsPerPageDropdown PrevPageLink PageLinks NextPageLink CurrentPageReport"
+                    currentPageReportTemplate="{first}-{last} of {totalRecords}"
                 >
                     <Column header="Scope" style="width: 9rem">
                         <template #body="slotProps">

@@ -4,13 +4,27 @@ import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 
 const { studentStats, studentSeats } = useDerivedSchedulerData()
+
+const tableVirtualScrollerOptions = {
+    itemSize: 40,
+    numToleratedItems: 12,
+    delay: 0,
+    showLoader: false
+}
 </script>
 
 <template>
     <div class="card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 h-full min-h-0 flex flex-col">
         <h3 class="text-xl font-black mb-6 px-2">Student Demographics</h3>
         <div class="min-h-0 flex-1">
-        <DataTable :value="studentStats" stripedRows class="p-datatable-sm" scrollable scrollHeight="flex">
+        <DataTable
+            :value="studentStats"
+            stripedRows
+            class="p-datatable-sm"
+            scrollable
+            scrollHeight="flex"
+            :virtualScrollerOptions="tableVirtualScrollerOptions"
+        >
             <Column field="grade" header="Grade Level" sortable class="font-bold"></Column>
             <Column field="total" header="Total Students" sortable></Column>
             <Column field="inclusion" header="Inclusion (IEP)" sortable>

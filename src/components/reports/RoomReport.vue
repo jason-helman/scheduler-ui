@@ -14,6 +14,13 @@ import { CopyButton } from '../common'
 
 const activeRoomReportTab = ref('0')
 const { roomUsage, sectionsWithoutRoom } = useDerivedSchedulerData()
+
+const usageTableVirtualScrollerOptions = {
+    itemSize: 40,
+    numToleratedItems: 12,
+    delay: 0,
+    showLoader: false
+}
 </script>
 
 <template>
@@ -29,7 +36,14 @@ const { roomUsage, sectionsWithoutRoom } = useDerivedSchedulerData()
             <TabPanels class="min-h-0 flex-1 overflow-hidden">
                 <TabPanel value="0" class="h-full min-h-0 overflow-hidden !p-0">
                     <div v-if="activeRoomReportTab === '0'" class="min-h-0 h-full">
-                    <DataTable :value="roomUsage" stripedRows class="p-datatable-sm" scrollable scrollHeight="flex">
+                    <DataTable
+                        :value="roomUsage"
+                        stripedRows
+                        class="p-datatable-sm"
+                        scrollable
+                        scrollHeight="flex"
+                        :virtualScrollerOptions="usageTableVirtualScrollerOptions"
+                    >
                         <Column v-if="store.showIds" header="ID" style="width: 8%">
                             <template #body="slotProps">
                                 <CopyButton :value="slotProps.data.id" label="Room ID" />
@@ -50,7 +64,16 @@ const { roomUsage, sectionsWithoutRoom } = useDerivedSchedulerData()
                         No placed sections are missing classrooms.
                     </div>
                     <div v-else-if="activeRoomReportTab === '1'" class="min-h-0 h-full">
-                    <DataTable :value="sectionsWithoutRoom" stripedRows class="p-datatable-sm" scrollable scrollHeight="flex">
+                    <DataTable
+                        :value="sectionsWithoutRoom"
+                        stripedRows
+                        class="p-datatable-sm"
+                        paginator
+                        :rows="100"
+                        :rowsPerPageOptions="[50, 100, 250]"
+                        paginatorTemplate="RowsPerPageDropdown PrevPageLink PageLinks NextPageLink CurrentPageReport"
+                        currentPageReportTemplate="{first}-{last} of {totalRecords}"
+                    >
                         <Column v-if="store.showIds" header="ID" style="width: 8%">
                             <template #body="slotProps">
                                 <CopyButton :value="slotProps.data.sectionId" label="Section ID" />
