@@ -1,6 +1,6 @@
 <script setup>
-import { computed } from 'vue'
 import { store } from '../store'
+import { useDerivedSchedulerData } from '../composables/useDerivedSchedulerData'
 import Card from 'primevue/card'
 import ProgressBar from 'primevue/progressbar'
 import Tabs from 'primevue/tabs'
@@ -13,35 +13,7 @@ import TeacherReport from './reports/TeacherReport.vue'
 import RoomReport from './reports/RoomReport.vue'
 import StudentReport from './reports/StudentReport.vue'
 
-const stats = computed(() => {
-    if (!store.localDataset) return null
-    
-    const sections = store.localDataset.sections || []
-    const total = sections.length
-    const placedSections = sections.filter(s => s.coursePeriodIds && s.coursePeriodIds.length > 0 && s.quartersDays && s.quartersDays.length > 0);
-    const placed = placedSections.length
-    const placedWithoutRoom = placedSections.filter(s => !s.classroomId).length
-    const locked = sections.filter(s => s.locked).length
-    const labs = sections.filter(s => s.isLab).length
-    const inclusion = sections.filter(s => s.isInclusion).length
-    
-    const totalRequests = (store.localDataset.studentRequests || []).length
-    const studentSeats = sections.reduce((sum, s) => sum + Number(s.student_count || 0), 0)
-    
-    return {
-        total,
-        placed,
-        unplaced: total - placed,
-        placedWithoutRoom,
-        locked,
-        labs,
-        inclusion,
-        studentSeats,
-        totalRequests,
-        placementRate: total > 0 ? Math.round((placed / total) * 100) : 0,
-        fulfillmentRate: totalRequests > 0 ? Math.round((studentSeats / totalRequests) * 100) : 0
-    }
-})
+const { reportStats: stats } = useDerivedSchedulerData()
 </script>
 
 <template>
@@ -59,7 +31,6 @@ const stats = computed(() => {
         </div>
 
         <div v-else class="flex-1 min-h-0 flex flex-col gap-6 animate-in fade-in duration-500 overflow-hidden">
-            <!-- Summary Stats -->
             <div class="shrink-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 <Card class="!shadow-sm !rounded-2xl border border-gray-100 dark:border-gray-800">
                     <template #content>
@@ -137,22 +108,22 @@ const stats = computed(() => {
                 </TabList>
                 <TabPanels class="min-h-0 flex-1 overflow-hidden">
                     <TabPanel value="0" class="h-full min-h-0 overflow-hidden !p-0">
-                        <div class="h-full min-h-0">
+                        <div v-if="store.activeReportTab === '0'" class="h-full min-h-0">
                             <CourseReport />
                         </div>
                     </TabPanel>
                     <TabPanel value="1" class="h-full min-h-0 overflow-hidden !p-0">
-                        <div class="h-full min-h-0">
+                        <div v-if="store.activeReportTab === '1'" class="h-full min-h-0">
                             <TeacherReport />
                         </div>
                     </TabPanel>
                     <TabPanel value="2" class="h-full min-h-0 overflow-hidden !p-0">
-                        <div class="h-full min-h-0">
+                        <div v-if="store.activeReportTab === '2'" class="h-full min-h-0">
                             <RoomReport />
                         </div>
                     </TabPanel>
                     <TabPanel value="3" class="h-full min-h-0 overflow-hidden !p-0">
-                        <div class="h-full min-h-0">
+                        <div v-if="store.activeReportTab === '3'" class="h-full min-h-0">
                             <StudentReport />
                         </div>
                     </TabPanel>

@@ -1,33 +1,9 @@
 <script setup>
-import { computed } from 'vue'
-import { store } from '../../store'
+import { useDerivedSchedulerData } from '../../composables/useDerivedSchedulerData'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 
-const stats = computed(() => {
-    if (!store.localDataset) return null
-    
-    const sections = store.localDataset.sections || []
-    const studentSeats = sections.reduce((sum, s) => sum + Number(s.student_count || 0), 0)
-    
-    return {
-        studentSeats
-    }
-})
-
-const studentStats = computed(() => {
-    if (!store.localDataset) return []
-    
-    const gradeMap = {}
-    const students = store.localDataset.students || []
-    students.forEach(st => {
-        if (!gradeMap[st.grade]) gradeMap[st.grade] = { grade: st.grade, total: 0, inclusion: 0 }
-        gradeMap[st.grade].total++
-        if (st.inclusion) gradeMap[st.grade].inclusion++
-    })
-    
-    return Object.values(gradeMap).sort((a, b) => a.grade.localeCompare(b.grade))
-})
+const { studentStats, studentSeats } = useDerivedSchedulerData()
 </script>
 
 <template>
@@ -49,7 +25,7 @@ const studentStats = computed(() => {
             <div class="flex items-center gap-3">
                 <i class="pi pi-info-circle text-blue-500"></i>
                 <span class="text-sm font-medium text-blue-700 dark:text-blue-300">
-                    Total seats currently scheduled across all sections: <strong>{{ stats.studentSeats }}</strong>
+                    Total seats currently scheduled across all sections: <strong>{{ studentSeats }}</strong>
                 </span>
             </div>
         </div>

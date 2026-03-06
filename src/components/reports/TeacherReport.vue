@@ -1,38 +1,11 @@
 <script setup>
-import { computed } from 'vue'
 import { store } from '../../store'
+import { useDerivedSchedulerData } from '../../composables/useDerivedSchedulerData'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import { CopyButton } from '../common'
 
-const teacherLoad = computed(() => {
-    if (!store.localDataset) return []
-    
-    const map = {}
-    const sections = store.localDataset.sections || []
-    sections.forEach(s => {
-        if (!map[s.teacherId]) {
-            map[s.teacherId] = {
-                id: s.teacherId,
-                name: s.teacher_name,
-                total: 0,
-                placed: 0,
-                labs: 0,
-                inclusion: 0,
-                students: 0
-            }
-        }
-        map[s.teacherId].total++
-        if (s.coursePeriodIds && s.coursePeriodIds.length > 0) {
-            map[s.teacherId].placed++
-        }
-        if (s.isLab) map[s.teacherId].labs++
-        if (s.isInclusion) map[s.teacherId].inclusion++
-        map[s.teacherId].students += Number(s.student_count || 0)
-    })
-    
-    return Object.values(map).sort((a, b) => b.total - a.total)
-})
+const { teacherLoad } = useDerivedSchedulerData()
 </script>
 
 <template>

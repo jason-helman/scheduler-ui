@@ -113,6 +113,7 @@ const activeSectionDiagnosticTabModel = computed({
                 <TabPanels class="min-h-0 flex-1 overflow-hidden">
                     <TabPanel value="0" class="h-full min-h-0 overflow-hidden !p-0">
                         <DataTable
+                            v-if="activeSectionListTabModel === '0'"
                             v-model:selection="selectedSectionModel"
                             :value="unplacedSectionRows"
                             selectionMode="single"
@@ -138,6 +139,7 @@ const activeSectionDiagnosticTabModel = computed({
                     </TabPanel>
                     <TabPanel value="1" class="h-full min-h-0 overflow-hidden !p-0">
                         <DataTable
+                            v-if="activeSectionListTabModel === '1'"
                             v-model:selection="selectedSectionModel"
                             :value="placedSectionRows"
                             selectionMode="single"
@@ -220,7 +222,7 @@ const activeSectionDiagnosticTabModel = computed({
                     </TabList>
                     <TabPanels class="min-h-0 flex-1 overflow-hidden">
                         <TabPanel value="0" class="h-full min-h-0 overflow-hidden !p-0">
-                            <div class="h-full min-h-0 space-y-4 overflow-y-auto pr-2">
+                            <div v-if="activeSectionDiagnosticTabModel === '0'" class="h-full min-h-0 space-y-4 overflow-y-auto pr-2">
                                 <div class="flex items-center gap-2 px-2 text-red-500">
                                     <i class="pi pi-exclamation-circle font-black"></i>
                                     <span class="text-xs font-black uppercase tracking-widest">{{ actionableTabLabel }}</span>
@@ -253,7 +255,7 @@ const activeSectionDiagnosticTabModel = computed({
                             </div>
                         </TabPanel>
                         <TabPanel value="1" class="h-full min-h-0 overflow-hidden !p-0">
-                            <div class="h-full min-h-0 space-y-4 overflow-y-auto pr-2">
+                            <div v-if="activeSectionDiagnosticTabModel === '1'" class="h-full min-h-0 space-y-4 overflow-y-auto pr-2">
                                 <div class="flex items-center gap-2 px-2 text-blue-500">
                                     <i class="pi pi-chart-line font-black"></i>
                                     <span class="text-xs font-black uppercase tracking-widest">Decision / Trace Diagnostics</span>

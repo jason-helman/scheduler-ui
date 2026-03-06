@@ -1,78 +1,13 @@
 <script setup>
-import { computed } from 'vue'
 import { store } from '../../store'
+import { useDerivedSchedulerData } from '../../composables/useDerivedSchedulerData'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Tag from 'primevue/tag'
 import ProgressBar from 'primevue/progressbar'
 import { CopyButton } from '../common'
 
-const courseStats = computed(() => {
-    if (!store.localDataset) return []
-    
-    const map = {}
-    
-    // 1. Initialize map from ALL courses
-    const courses = store.localDataset.courses || []
-    courses.forEach(c => {
-        map[c.courseId] = {
-            id: c.courseId,
-            name: c.name,
-            code: c.courseCode,
-            inc: { type: 'Inclusion', total: 0, placed: 0, students: 0, studentsInPlaced: 0 },
-            gen: { type: 'Gen-Ed', total: 0, placed: 0, students: 0, studentsInPlaced: 0 }
-        }
-    })
-    
-    // 2. Process sections
-    const sections = store.localDataset.sections || []
-    sections.forEach(s => {
-        if (!map[s.courseId]) return
-        
-        const isPlaced = s.coursePeriodIds && s.coursePeriodIds.length > 0
-        const target = s.isInclusion ? map[s.courseId].inc : map[s.courseId].gen
-        
-        target.total++
-        if (isPlaced) {
-            target.placed++
-            target.studentsInPlaced += Number(s.student_count || 0)
-        }
-    })
-
-    // 3. Process requests for student counts
-    const requests = store.localDataset.studentRequests || []
-    requests.forEach(req => {
-        if (map[req.courseId]) {
-            const target = req.isInclusion ? map[req.courseId].inc : map[req.courseId].gen
-            target.students++
-        }
-    })
-    
-    // 4. Flatten map into rows
-    const rows = []
-    Object.values(map).forEach(c => {
-        if (c.inc.total > 0 || c.inc.students > 0) {
-            rows.push({
-                courseId: c.id,
-                name: c.name,
-                code: c.code,
-                ...c.inc,
-                avgSize: c.inc.placed > 0 ? (c.inc.studentsInPlaced / c.inc.placed).toFixed(1) : 0
-            })
-        }
-        if (c.gen.total > 0 || c.gen.students > 0) {
-            rows.push({
-                courseId: c.id,
-                name: c.name,
-                code: c.code,
-                ...c.gen,
-                avgSize: c.gen.placed > 0 ? (c.gen.studentsInPlaced / c.gen.placed).toFixed(1) : 0
-            })
-        }
-    })
-    
-    return rows.sort((a, b) => a.name.localeCompare(b.name) || a.type.localeCompare(b.type))
-})
+const { courseStats } = useDerivedSchedulerData()
 </script>
 
 <template>
