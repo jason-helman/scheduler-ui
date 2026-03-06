@@ -24,7 +24,8 @@ const emit = defineEmits([
     'toggle-lock',
     'jump-to-teacher',
     'jump-to-section',
-    'open-diagnostics'
+    'open-diagnostics',
+    'open-alerts'
 ])
 
 const userSelectedLayerIndex = ref(0)
@@ -158,6 +159,7 @@ watch(() => props.hoveredSection, (newTarget) => {
                             @jump-to-teacher="id => emit('jump-to-teacher', id)"
                             @jump-to-section="id => emit('jump-to-section', id)"
                             @open-diagnostics="id => emit('open-diagnostics', id)"
+                            @open-alerts="id => emit('open-alerts', id)"
                         />
                     </template>
                 </template>

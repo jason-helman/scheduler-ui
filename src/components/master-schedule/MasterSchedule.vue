@@ -42,6 +42,13 @@ const openUnplacedSections = (teacher) => {
 
 const openSectionDiagnostics = (sectionId) => {
     store.selectedSectionId = sectionId
+    store.diagnosticsTargetSectionTab = '1'
+    store.currentView = 'Diagnostics'
+}
+
+const openSectionAlerts = (sectionId) => {
+    store.selectedSectionId = sectionId
+    store.diagnosticsTargetSectionTab = '0'
     store.currentView = 'Diagnostics'
 }
 
@@ -184,6 +191,7 @@ onBeforeUnmount(() => {
                         @jump-to-teacher="jumpToTeacherRelatedSection"
                         @jump-to-section="jumpToSection"
                         @open-diagnostics="openSectionDiagnostics"
+                        @open-alerts="openSectionAlerts"
                     />
                 </template>
             </Column>

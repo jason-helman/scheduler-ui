@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 import { store } from '../store'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
@@ -26,37 +26,46 @@ const DECISION_CODES = new Set([
 
 const isActionableSeverity = (severity) => ['fatal', 'skip', 'blocking', 'preserved_conflict'].includes(severity)
 
-const flattenDiagnostics = () => {
-    if (!store.diagnostics) return []
-    return [
-        ...(store.diagnostics.validation || []).map(d => ({ ...d, scope: 'validation' })),
-        ...(store.diagnostics.sectionPlacement || []).map(d => ({ ...d, scope: 'sectionPlacement' })),
-        ...(store.diagnostics.studentPlacement || []).map(d => ({ ...d, scope: 'studentPlacement' }))
-    ]
-}
+const sectionPlacementDiagnostics = computed(() => store.diagnostics?.sectionPlacement || [])
+const validationDiagnostics = computed(() => store.diagnostics?.validation || [])
+const studentPlacementDiagnostics = computed(() => store.diagnostics?.studentPlacement || [])
+
+const sectionDiagnosticsIndex = computed(() => {
+    const bySectionId = new Map()
+    const countsBySectionId = new Map()
+
+    sectionPlacementDiagnostics.value.forEach((d) => {
+        if (d.entityType !== 'section') return
+        const key = String(d.entityId)
+
+        if (!bySectionId.has(key)) bySectionId.set(key, [])
+        bySectionId.get(key).push(d)
+
+        if (!countsBySectionId.has(key)) {
+            countsBySectionId.set(key, { actionable: 0, trace: 0 })
+        }
+        const counts = countsBySectionId.get(key)
+        if (isActionableSeverity(d.severity)) counts.actionable += 1
+        if (d.severity === 'non_blocking' || DECISION_CODES.has(d.code)) counts.trace += 1
+    })
+
+    return { bySectionId, countsBySectionId }
+})
 
 const sectionRows = computed(() => {
     if (!store.localDataset) return []
     return (store.localDataset.sections || [])
         .map(s => {
-            const sectionDiagnostics = (store.diagnostics?.sectionPlacement || []).filter(
-                d => d.entityId === s.sectionId &&
-                    d.entityType === 'section'
-            )
-            const actionableDiagnostics = sectionDiagnostics.filter(
-                d => d.entityId === s.sectionId &&
-                    d.entityType === 'section' &&
-                    isActionableSeverity(d.severity)
-            )
-            const traceDiagnostics = sectionDiagnostics.filter(
-                d => d.severity === 'non_blocking' || DECISION_CODES.has(d.code)
-            )
+            const counts = sectionDiagnosticsIndex.value.countsBySectionId.get(String(s.sectionId)) || {
+                actionable: 0,
+                trace: 0
+            }
             const isPlaced = !!(s.coursePeriodIds && s.coursePeriodIds.length > 0)
             return {
                 ...s,
                 isPlaced,
-                diagnosticCount: actionableDiagnostics.length,
-                traceCount: traceDiagnostics.length
+                diagnosticCount: counts.actionable,
+                traceCount: counts.trace
             };
         })
         .sort((a, b) => {
@@ -72,8 +81,7 @@ const placedSectionRows = computed(() => sectionRows.value.filter(s => s.isPlace
 
 const currentSectionDiagnostics = computed(() => {
     if (!selectedSection.value || !store.diagnostics) return []
-    return (store.diagnostics.sectionPlacement || [])
-        .filter(d => d.entityId === selectedSection.value.sectionId && d.entityType === 'section')
+    return sectionDiagnosticsIndex.value.bySectionId.get(String(selectedSection.value.sectionId)) || []
 })
 
 const currentSectionFailures = computed(() =>
@@ -90,15 +98,34 @@ const noActionableText = computed(() =>
         : 'No actionable failures for this section.'
 )
 
-const allDiagnostics = computed(() => flattenDiagnostics())
+const allDiagnostics = computed(() => {
+    if (!store.diagnostics) return []
+    return [
+        ...validationDiagnostics.value,
+        ...sectionPlacementDiagnostics.value,
+        ...studentPlacementDiagnostics.value
+    ]
+})
 
 const systemAndDecisionDiagnostics = computed(() =>
     allDiagnostics.value.filter(d => d.entityType === 'system' || DECISION_CODES.has(d.code))
 )
 
+const diagnosticScopeIndex = shallowRef(new WeakMap())
+
+watch([validationDiagnostics, sectionPlacementDiagnostics, studentPlacementDiagnostics], ([validation, sectionPlacement, studentPlacement]) => {
+    const scopeIndex = new WeakMap()
+    validation.forEach((d) => scopeIndex.set(d, 'validation'))
+    sectionPlacement.forEach((d) => scopeIndex.set(d, 'sectionPlacement'))
+    studentPlacement.forEach((d) => scopeIndex.set(d, 'studentPlacement'))
+    diagnosticScopeIndex.value = scopeIndex
+}, { immediate: true })
+
+const getDiagnosticScope = (diagnostic) => diagnosticScopeIndex.value.get(diagnostic) || '-'
+
 const systemMetrics = computed(() => {
     const metrics = {}
-    const systemRows = (store.diagnostics?.sectionPlacement || []).filter(
+    const systemRows = sectionPlacementDiagnostics.value.filter(
         d => d.entityType === 'system' && d.metrics
     )
     systemRows.forEach((row) => {
@@ -109,9 +136,9 @@ const systemMetrics = computed(() => {
     return metrics
 })
 
-const idReferenceIndex = computed(() => {
-    const index = new Map()
-    const typed = {
+const createEmptyReferenceIndex = () => ({
+    index: new Map(),
+    typed: {
         course: new Map(),
         teacher: new Map(),
         classroom: new Map(),
@@ -121,6 +148,13 @@ const idReferenceIndex = computed(() => {
         group: new Map(),
         lunch: new Map()
     }
+})
+
+const idReferenceIndex = shallowRef(createEmptyReferenceIndex())
+
+const buildIdReferenceIndex = (dataset) => {
+    const refIndex = createEmptyReferenceIndex()
+    const { index, typed } = refIndex
     const add = (id, label, type) => {
         if (id == null || !label) return
         const key = String(id)
@@ -132,42 +166,46 @@ const idReferenceIndex = computed(() => {
         }
     }
 
-    if (!store.localDataset) return { index, typed }
+    if (!dataset) return refIndex
 
-    ;(store.localDataset.courses || []).forEach((c) => {
+    ;(dataset.courses || []).forEach((c) => {
         add(c.courseId, `Course: ${c.course_name || c.name || c.courseId}`, 'course')
     })
-    ;(store.localDataset.teachers || []).forEach((t) => {
+    ;(dataset.teachers || []).forEach((t) => {
         add(t.teacherId, `Teacher: ${t.teacher_name || t.name || t.teacherId}`, 'teacher')
     })
-    ;(store.localDataset.classrooms || []).forEach((r) => {
+    ;(dataset.classrooms || []).forEach((r) => {
         add(r.classroomId, `Room: ${r.room_name || r.classroom_name || r.name || r.classroomId}`, 'classroom')
     })
-    ;(store.localDataset.students || []).forEach((s) => {
+    ;(dataset.students || []).forEach((s) => {
         add(s.studentId, `Student: ${s.student_name || s.name || s.studentId}`, 'student')
     })
-    ;(store.localDataset.sections || []).forEach((s) => {
+    ;(dataset.sections || []).forEach((s) => {
         const sectionTitle = s.course_name ? `Section: ${s.course_name}` : `Section: ${s.sectionId}`
         add(s.sectionId, sectionTitle, 'section')
     })
-    ;(store.localDataset.coursePeriods || []).forEach((p) => {
+    ;(dataset.coursePeriods || []).forEach((p) => {
         const periodName = p.name || p.period_name || `P${p.coursePeriodId}`
         add(p.coursePeriodId, `Period: ${periodName}`, 'period')
     })
-    ;(store.localDataset.scheduleStructure || []).forEach((ss) => {
+    ;(dataset.scheduleStructure || []).forEach((ss) => {
         const periodName = ss.name || ss.period_name || `P${ss.coursePeriodId}`
         const timeWindow = ss.startTime && ss.endTime ? ` (${ss.startTime}-${ss.endTime})` : ''
         add(ss.coursePeriodId, `Period: ${periodName}${timeWindow}`, 'period')
     })
-    ;(store.localDataset.requestGroups || []).forEach((g) => {
+    ;(dataset.requestGroups || []).forEach((g) => {
         add(g.groupId, `Group: ${g.groupId}`, 'group')
     })
-    ;(store.localDataset.lunches || []).forEach((l) => {
+    ;(dataset.lunches || []).forEach((l) => {
         add(l.lunchId, `Lunch: ${l.lunchId}`, 'lunch')
     })
 
-    return { index, typed }
-})
+    return refIndex
+}
+
+watch(() => store.localDataset, (dataset) => {
+    idReferenceIndex.value = buildIdReferenceIndex(dataset)
+}, { immediate: true })
 
 const resolveIdName = (id, preferredType = null) => {
     if (id == null) return '-'
@@ -182,6 +220,15 @@ const resolveIdName = (id, preferredType = null) => {
 }
 
 const idsEqual = (a, b) => String(a) === String(b)
+const consumeTargetSectionTab = () => {
+    const requestedTab = store.diagnosticsTargetSectionTab
+    if (requestedTab === '0' || requestedTab === '1') {
+        activeSectionDiagnosticTab.value = requestedTab
+        store.diagnosticsTargetSectionTab = null
+        return true
+    }
+    return false
+}
 
 // Sync selected section from store if it changes (external navigation)
 watch([() => store.selectedSectionId, sectionRows], ([newId, sections]) => {
@@ -189,6 +236,7 @@ watch([() => store.selectedSectionId, sectionRows], ([newId, sections]) => {
         const found = sections.find(s => idsEqual(s.sectionId, newId))
         if (found) {
             activeSectionListTab.value = found.isPlaced ? '1' : '0'
+            consumeTargetSectionTab()
         }
         if (found && !idsEqual(selectedSection.value?.sectionId, newId)) {
             selectedSection.value = found
@@ -197,14 +245,19 @@ watch([() => store.selectedSectionId, sectionRows], ([newId, sections]) => {
 }, { immediate: true })
 
 // Also sync internal selection back to store to keep them in sync
-watch(selectedSection, (newSection) => {
+watch(selectedSection, (newSection, oldSection) => {
     if (newSection && !idsEqual(store.selectedSectionId, newSection.sectionId)) {
         store.selectedSectionId = newSection.sectionId
     }
     if (newSection) {
         activeSectionListTab.value = newSection.isPlaced ? '1' : '0'
     }
-    activeSectionDiagnosticTab.value = '0'
+    const sectionChanged = !idsEqual(newSection?.sectionId, oldSection?.sectionId)
+    if (sectionChanged) {
+        if (!consumeTargetSectionTab()) {
+            activeSectionDiagnosticTab.value = '0'
+        }
+    }
 })
 </script>
 
@@ -525,7 +578,11 @@ watch(selectedSection, (newSection) => {
                                 scrollable
                                 scrollHeight="360px"
                             >
-                                <Column field="scope" header="Scope" sortable style="width: 9rem" />
+                                <Column header="Scope" style="width: 9rem">
+                                    <template #body="slotProps">
+                                        {{ getDiagnosticScope(slotProps.data) }}
+                                    </template>
+                                </Column>
                                 <Column field="entityType" header="Type" sortable style="width: 8rem" />
                                 <Column field="entityId" header="Entity" sortable style="width: 16rem">
                                     <template #body="slotProps">

@@ -16,6 +16,7 @@ export const store = reactive({
     currentView: 'MasterSchedule',
     activeReportTab: '0',
     selectedSectionId: null,
+    diagnosticsTargetSectionTab: null,
 
     // Actions
     toggleLock(sectionId) {

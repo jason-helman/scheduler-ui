@@ -21,7 +21,8 @@ const emit = defineEmits([
     'toggle-lock',
     'jump-to-teacher',
     'jump-to-section',
-    'open-diagnostics'
+    'open-diagnostics',
+    'open-alerts'
 ])
 const showStudentsDialog = ref(false)
 const bodyEl = ref(null)
@@ -77,6 +78,15 @@ const diagnosticsCount = computed(() => {
     if (!store.diagnostics?.sectionPlacement) return 0
     return store.diagnostics.sectionPlacement.filter(
         d => d.entityType === 'section' && String(d.entityId) === String(props.section.sectionId)
+    ).length
+})
+const actionableAlertsCount = computed(() => {
+    if (!store.diagnostics?.sectionPlacement) return 0
+    return store.diagnostics.sectionPlacement.filter(
+        d =>
+            d.entityType === 'section' &&
+            String(d.entityId) === String(props.section.sectionId) &&
+            ['fatal', 'skip', 'blocking', 'preserved_conflict'].includes(d.severity)
     ).length
 })
 const {
@@ -242,8 +252,11 @@ if (masterBadgeFitEpoch) {
             :is-compressed="store.isCompressed"
             :show-diagnostics-action="!!store.diagnostics"
             :diagnostics-count="diagnosticsCount"
+            :show-alerts-action="actionableAlertsCount > 0"
+            :alerts-count="actionableAlertsCount"
             @view-students="showStudentsDialog = true"
             @open-diagnostics="emit('open-diagnostics', section.sectionId)"
+            @open-alerts="emit('open-alerts', section.sectionId)"
         />
     </div>
 

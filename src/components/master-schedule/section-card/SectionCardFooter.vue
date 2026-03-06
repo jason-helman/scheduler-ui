@@ -15,10 +15,18 @@ defineProps({
     diagnosticsCount: {
         type: Number,
         default: 0
+    },
+    showAlertsAction: {
+        type: Boolean,
+        default: false
+    },
+    alertsCount: {
+        type: Number,
+        default: 0
     }
 })
 
-const emit = defineEmits(['view-students', 'open-diagnostics'])
+const emit = defineEmits(['view-students', 'open-diagnostics', 'open-alerts'])
 </script>
 
 <template>
@@ -28,6 +36,19 @@ const emit = defineEmits(['view-students', 'open-diagnostics'])
             {{ section.room_name }}
         </div>
         <div class="flex items-center gap-2">
+            <button
+                v-if="showAlertsAction"
+                type="button"
+                @click.stop="emit('open-alerts')"
+                :class="[
+                    'flex items-center gap-1 font-black text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors cursor-pointer',
+                    isCompressed ? 'text-[7px]' : 'text-[8px]'
+                ]"
+                v-tooltip.top="'Open Alerts'"
+            >
+                <i :class="['pi pi-exclamation-triangle', isCompressed ? 'text-[7px]' : 'text-[8px]']" />
+                <span>{{ alertsCount }}</span>
+            </button>
             <button
                 v-if="showDiagnosticsAction"
                 type="button"
