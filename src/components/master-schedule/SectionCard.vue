@@ -9,6 +9,10 @@ import { getCourseByIdMap, getHighlightClass, getStudentByIdMap } from '../../ut
 
 const props = defineProps({
     section: Object,
+    sectionDiagnosticsCounts: {
+        type: Object,
+        default: null
+    },
     hoveredSection: Object,
     currentTeacherId: [Number, String],
     jumpPulseSectionId: [Number, String],
@@ -75,19 +79,12 @@ const hasCapacityRisk = computed(() => {
     return enrolledCount.value > courseCapacity.value
 })
 const diagnosticsCount = computed(() => {
-    if (!store.diagnostics?.sectionPlacement) return 0
-    return store.diagnostics.sectionPlacement.filter(
-        d => d.entityType === 'section' && String(d.entityId) === String(props.section.sectionId)
-    ).length
+    if (!props.sectionDiagnosticsCounts) return 0
+    return props.sectionDiagnosticsCounts.totalBySectionId?.get(String(props.section.sectionId)) || 0
 })
 const actionableAlertsCount = computed(() => {
-    if (!store.diagnostics?.sectionPlacement) return 0
-    return store.diagnostics.sectionPlacement.filter(
-        d =>
-            d.entityType === 'section' &&
-            String(d.entityId) === String(props.section.sectionId) &&
-            ['fatal', 'skip', 'blocking', 'preserved_conflict'].includes(d.severity)
-    ).length
+    if (!props.sectionDiagnosticsCounts) return 0
+    return props.sectionDiagnosticsCounts.alertsBySectionId?.get(String(props.section.sectionId)) || 0
 })
 const {
     compactBadgeLabels,

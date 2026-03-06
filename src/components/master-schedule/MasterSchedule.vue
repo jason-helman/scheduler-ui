@@ -32,6 +32,23 @@ const { periods, scheduleData, rowItemSize, virtualScrollerOptions } = useMaster
     localDataset: computed(() => store.localDataset),
     isCompressed: computed(() => store.isCompressed)
 })
+const ACTIONABLE_ALERT_SEVERITIES = new Set(['fatal', 'skip', 'blocking', 'preserved_conflict'])
+const sectionDiagnosticsCounts = computed(() => {
+    const totalBySectionId = new Map()
+    const alertsBySectionId = new Map()
+    const diagnostics = store.diagnostics?.sectionPlacement || []
+
+    diagnostics.forEach((d) => {
+        if (d.entityType !== 'section') return
+        const key = String(d.entityId)
+        totalBySectionId.set(key, (totalBySectionId.get(key) || 0) + 1)
+        if (ACTIONABLE_ALERT_SEVERITIES.has(d.severity)) {
+            alertsBySectionId.set(key, (alertsBySectionId.get(key) || 0) + 1)
+        }
+    })
+
+    return { totalBySectionId, alertsBySectionId }
+})
 
 const openUnplacedSections = (teacher) => {
     if (teacher.unplacedSections && teacher.unplacedSections.length > 0) {
@@ -181,6 +198,7 @@ onBeforeUnmount(() => {
                     <ScheduleCell 
                         :teacher="slotProps.data" 
                         :period-id="p.coursePeriodId" 
+                        :section-diagnostics-counts="sectionDiagnosticsCounts"
                         :row-index="slotProps.index ?? 0"
                         :hovered-section="effectiveHoveredSection"
                         :jump-pulse-section-id="jumpPulseSectionId"
