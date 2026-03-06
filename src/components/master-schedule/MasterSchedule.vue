@@ -72,7 +72,8 @@ const openSectionAlerts = (sectionId) => {
 const { tableScrollHeight } = useViewportTableHeight({
     tableHostRef,
     isCompressed: computed(() => store.isCompressed),
-    watchSource: () => [store.isCompressed, store.error, store.selectedVersion?.schedule_id ?? null, periods.value.length]
+    watchSource: () => [store.isCompressed, store.error, store.selectedVersion?.schedule_id ?? null, periods.value.length],
+    bottomGap: 56
 })
 
 const {
@@ -154,21 +155,21 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="h-full min-h-0 flex flex-col gap-6 overflow-hidden">
     <!-- Selectors -->
     <ScheduleSelector />
 
     <Message v-if="store.error" severity="error" class="shadow-sm">{{ store.error }}</Message>
 
     <!-- Data Table Card -->
-    <div :class="['card bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-all duration-300 flex flex-col min-h-0', store.isCompressed ? 'p-3' : 'p-6']">
+    <div :class="['card bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-all duration-300 flex flex-col flex-1 min-h-0', store.isCompressed ? 'p-3' : 'p-6']">
         <div :class="['flex items-center justify-between px-2', store.isCompressed ? 'mb-3' : 'mb-6']">
             <h2 :class="['font-black tracking-tight text-gray-900 dark:text-white transition-all', store.isCompressed ? 'text-xl' : 'text-3xl']">Master Schedule</h2>
             <div v-if="store.selectedVersion" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-xs font-bold text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
                 {{ store.selectedVersion.schedule_name }}
             </div>
         </div>
-        <div ref="tableHostRef" class="min-h-0">
+        <div ref="tableHostRef" class="flex-1 min-h-0">
             <DataTable
                 ref="tableRef"
                 :value="scheduleData"

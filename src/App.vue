@@ -62,7 +62,7 @@ const navItems = [
 </script>
 
 <template>
-  <div :class="['flex h-screen transition-colors duration-300', isDarkMode ? 'bg-gray-950 text-gray-100 my-app-dark' : 'bg-gray-50 text-gray-900']">
+  <div :class="['flex h-dvh overflow-hidden transition-colors duration-300', isDarkMode ? 'bg-gray-950 text-gray-100 my-app-dark' : 'bg-gray-50 text-gray-900']">
     <!-- Sidebar: Always Dark -->
     <aside :class="[isCollapsed ? 'w-20' : 'w-64', 'h-full bg-slate-900 flex flex-col shadow-2xl z-20 transition-all duration-300 relative']">
       <!-- Collapse Toggle Button -->
@@ -118,14 +118,14 @@ const navItems = [
     </aside>
 
     <!-- Main Content -->
-    <main class="flex-1 overflow-hidden p-10">
-      <div v-if="store.currentView === 'MasterSchedule'" class="animate-in fade-in duration-500 h-full">
+    <main class="flex-1 min-h-0 overflow-hidden p-10">
+      <div v-if="store.currentView === 'MasterSchedule'" class="animate-in fade-in duration-500 h-full min-h-0 overflow-hidden">
         <MasterSchedule />
       </div>
-      <div v-else-if="store.currentView === 'Reports'" class="animate-in fade-in duration-500 h-full">
+      <div v-else-if="store.currentView === 'Reports'" class="animate-in fade-in duration-500 h-full min-h-0 overflow-hidden">
         <Reports />
       </div>
-      <div v-else-if="store.currentView === 'Diagnostics'" class="animate-in fade-in duration-500 h-full">
+      <div v-else-if="store.currentView === 'Diagnostics'" class="animate-in fade-in duration-500 h-full min-h-0 overflow-hidden">
         <Diagnostics />
       </div>
     </main>
