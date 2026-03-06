@@ -27,6 +27,7 @@ const {
     sectionRows,
     unplacedSectionRows,
     placedSectionRows,
+    invalidSectionRows,
     systemAndDecisionDiagnostics,
     validationIssueCount,
     hasAnyDiagnostics,
@@ -46,9 +47,13 @@ const currentSectionFailures = computed(() =>
     currentSectionDiagnostics.value.filter((d) => isActionableSeverity(d.severity))
 )
 
-const currentSectionDecisionDiagnostics = computed(() =>
-    currentSectionDiagnostics.value.filter((d) => d.severity === 'non_blocking' || decisionCodes.has(d.code))
-)
+const currentSectionDecisionDiagnostics = computed(() => {
+    const decisionDiagnostics = currentSectionDiagnostics.value.filter(
+        (d) => d.severity === 'non_blocking' || decisionCodes.has(d.code)
+    )
+    if (decisionDiagnostics.length > 0) return decisionDiagnostics
+    return currentSectionDiagnostics.value
+})
 
 const actionableTabLabel = computed(() => (selectedSection.value?.isPlaced ? 'Alerts' : 'Failures'))
 const noActionableText = computed(() =>
@@ -74,7 +79,7 @@ watch([() => store.selectedSectionId, sectionRows, () => store.diagnosticsExtern
     if (newId != null && sections.length > 0) {
         const found = sections.find((s) => idsEqual(s.sectionId, newId))
         if (found) {
-            activeSectionListTab.value = found.isPlaced ? '1' : '0'
+            activeSectionListTab.value = found.isInvalid ? '2' : (found.isPlaced ? '1' : '0')
             consumeTargetSectionTab()
         }
         if (found) {
@@ -101,7 +106,7 @@ watch(selectedSection, (newSection, oldSection) => {
         store.selectedSectionId = newSection.sectionId
     }
     if (newSection) {
-        activeSectionListTab.value = newSection.isPlaced ? '1' : '0'
+        activeSectionListTab.value = newSection.isInvalid ? '2' : (newSection.isPlaced ? '1' : '0')
     }
     const sectionChanged = !idsEqual(newSection?.sectionId, oldSection?.sectionId)
     if (sectionChanged) {
@@ -156,6 +161,7 @@ watch(selectedSection, (newSection, oldSection) => {
                                 :section-rows="sectionRows"
                                 :unplaced-section-rows="unplacedSectionRows"
                                 :placed-section-rows="placedSectionRows"
+                                :invalid-section-rows="invalidSectionRows"
                                 :selected-section="selectedSection"
                                 :has-diagnostics="Boolean(store.diagnostics)"
                                 :current-section-diagnostics="currentSectionDiagnostics"

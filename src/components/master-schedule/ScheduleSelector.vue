@@ -68,6 +68,7 @@ const runPlacement = async () => {
     
     store.loading = true
     store.error = null
+    store.diagnostics = null
     try {
         const result = await api.runSectionPlacement(store.localDataset)
         
@@ -77,7 +78,7 @@ const runPlacement = async () => {
             placementMap[ps.section_id] = ps
         })
         
-        store.localDataset.sections = store.localDataset.sections.map(s => {
+        const nextSections = store.localDataset.sections.map(s => {
             const ps = placementMap[s.sectionId]
             if (ps) {
                 return {
@@ -94,7 +95,23 @@ const runPlacement = async () => {
             }
             return s
         })
-        store.diagnostics = result.diagnostics
+
+        // Replace sections array reference to trigger derived diagnostics recomputation
+        // without replacing the entire dataset object.
+        store.localDataset.sections = nextSections
+
+        const incomingDiagnostics = result?.diagnostics || {}
+        store.diagnostics = {
+            validation: [
+                ...(incomingDiagnostics.validation || incomingDiagnostics.validation_diagnostics || [])
+            ],
+            sectionPlacement: [
+                ...(incomingDiagnostics.sectionPlacement || incomingDiagnostics.section_placement || [])
+            ],
+            studentPlacement: [
+                ...(incomingDiagnostics.studentPlacement || incomingDiagnostics.student_placement || [])
+            ]
+        }
     } catch (e) {
         store.error = "Failed to run placement: " + e.message
     } finally {

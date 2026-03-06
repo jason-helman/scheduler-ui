@@ -24,6 +24,10 @@ const props = defineProps({
         type: Array,
         required: true
     },
+    invalidSectionRows: {
+        type: Array,
+        required: true
+    },
     selectedSection: {
         type: Object,
         default: null
@@ -108,6 +112,7 @@ const sectionTableVirtualScrollerOptions = {
 
 const unplacedTableRef = ref(null)
 const placedTableRef = ref(null)
+const invalidTableRef = ref(null)
 
 const rowClass = (data) => 'diag-section-row diag-section-row--' + String(data.sectionId)
 
@@ -119,7 +124,10 @@ const scrollToTargetSection = async () => {
     for (let attempt = 0; attempt < 20; attempt += 1) {
         await nextTick()
 
-        const tableRef = activeSectionListTabModel.value === '1' ? placedTableRef.value : unplacedTableRef.value
+        const tableRef =
+            activeSectionListTabModel.value === '2'
+                ? invalidTableRef.value
+                : (activeSectionListTabModel.value === '1' ? placedTableRef.value : unplacedTableRef.value)
         if (!tableRef) {
             await new Promise((resolve) => setTimeout(resolve, 30))
             continue
@@ -183,6 +191,10 @@ watch(() => props.scrollRequestKey, (requestKey) => {
                         Placed
                         <Badge class="ml-2" :value="placedSectionRows.length" severity="success" />
                     </Tab>
+                    <Tab value="2">
+                        Invalid
+                        <Badge class="ml-2" :value="invalidSectionRows.length" severity="danger" />
+                    </Tab>
                 </TabList>
                 <TabPanels class="min-h-0 flex-1 overflow-hidden">
                     <TabPanel value="0" class="h-full min-h-0 overflow-hidden !p-0">
@@ -243,6 +255,37 @@ watch(() => props.scrollRequestKey, (requestKey) => {
                             <Column field="traceCount" header="Trace" sortable style="width: 5rem">
                                 <template #body="slotProps">
                                     <Badge :value="slotProps.data.traceCount" severity="info"></Badge>
+                                </template>
+                            </Column>
+                        </DataTable>
+                    </TabPanel>
+                    <TabPanel value="2" class="h-full min-h-0 overflow-hidden !p-0">
+                        <DataTable
+                            ref="invalidTableRef"
+                            v-model:selection="selectedSectionModel"
+                            :value="invalidSectionRows"
+                            selectionMode="single"
+                            stripedRows
+                            class="p-datatable-sm"
+                            sortField="invalidDiagnosticCount"
+                            :sortOrder="-1"
+                            :rowClass="rowClass"
+                            dataKey="sectionId"
+                            scrollable
+                            scrollHeight="flex"
+                            :virtualScrollerOptions="sectionTableVirtualScrollerOptions"
+                            tableStyle="min-width: 30rem; table-layout: fixed"
+                        >
+                            <Column field="course_name" header="Course" sortable class="font-bold text-sm" style="width: 40%"></Column>
+                            <Column field="teacher_name" header="Teacher" sortable class="text-xs" style="width: 34%"></Column>
+                            <Column field="invalidDiagnosticCount" header="Invalid" sortable style="width: 6rem">
+                                <template #body="slotProps">
+                                    <Badge :value="slotProps.data.invalidDiagnosticCount" severity="danger"></Badge>
+                                </template>
+                            </Column>
+                            <Column field="diagnosticCount" header="Issues" sortable style="width: 5rem">
+                                <template #body="slotProps">
+                                    <Badge :value="slotProps.data.diagnosticCount" :severity="slotProps.data.diagnosticCount > 0 ? 'danger' : 'secondary'"></Badge>
                                 </template>
                             </Column>
                         </DataTable>

@@ -5,6 +5,8 @@ const DECISION_CODES = new Set([
     'DECISION_SUMMARY',
     'CANDIDATE_REJECTED_FILTER',
     'CANDIDATE_SELECTED',
+    'VALID_CANDIDATE_SUMMARY',
+    'VALID_CANDIDATE_SCORED',
     'SECTION_FINAL_PLACEMENT'
 ])
 
@@ -40,6 +42,7 @@ const sectionDiagnosticsIndex = shallowRef({ bySectionId: new Map(), countsBySec
 const sectionRows = shallowRef([])
 const unplacedSectionRows = shallowRef([])
 const placedSectionRows = shallowRef([])
+const invalidSectionRows = shallowRef([])
 const systemAndDecisionDiagnostics = shallowRef([])
 const validationIssueCount = shallowRef(0)
 const hasAnyDiagnostics = shallowRef(false)
@@ -48,6 +51,39 @@ const diagnosticScopeIndex = shallowRef(new WeakMap())
 const idReferenceIndex = shallowRef(EMPTY_REFERENCE_INDEX())
 
 let initialized = false
+
+const normalizeDiagnostic = (diagnostic) => {
+    if (!diagnostic || typeof diagnostic !== 'object') return null
+
+    const inferredEntityId = diagnostic.entityId ?? diagnostic.entity_id ?? diagnostic.id
+    const inferredEntityType = diagnostic.entityType ?? diagnostic.entity_type ?? diagnostic.type
+
+    const normalized = {
+        ...diagnostic,
+        entityId: inferredEntityId,
+        entityType: inferredEntityType,
+        targetEntityId: diagnostic.targetEntityId ?? diagnostic.target_entity_id,
+        conflictingIds: diagnostic.conflictingIds ?? diagnostic.conflicting_ids,
+        message: diagnostic.message ?? diagnostic.log ?? diagnostic.reason ?? '',
+        metrics: diagnostic.metrics ?? diagnostic.meta
+    }
+
+    if (normalized.entityId == null && !normalized.message && !normalized.code) return null
+    return normalized
+}
+
+const normalizeMetricKey = (key) => {
+    const mapping = {
+        total_run_ms: 'totalRunMs',
+        tabu_search_ms: 'tabuSearchMs',
+        global_score_before_tabu: 'globalScoreBeforeTabu',
+        global_score_after_tabu: 'globalScoreAfterTabu',
+        global_score_delta: 'globalScoreDelta',
+        final_placed_count: 'finalPlacedCount',
+        total_sections: 'totalSections'
+    }
+    return mapping[key] || key
+}
 
 const isPlacedSection = (section) => Boolean(section?.coursePeriodIds && section.coursePeriodIds.length > 0)
 
@@ -247,9 +283,13 @@ const buildIdReferenceIndex = (dataset) => {
 }
 
 const buildDiagnosticsData = (dataset, diagnostics) => {
-    const validation = diagnostics?.validation || []
-    const sectionPlacement = diagnostics?.sectionPlacement || []
-    const studentPlacement = diagnostics?.studentPlacement || []
+    const validationRaw = diagnostics?.validation || diagnostics?.validation_diagnostics || []
+    const sectionPlacementRaw = diagnostics?.sectionPlacement || diagnostics?.section_placement || []
+    const studentPlacementRaw = diagnostics?.studentPlacement || diagnostics?.student_placement || []
+
+    const validation = validationRaw.map(normalizeDiagnostic).filter(Boolean)
+    const sectionPlacement = sectionPlacementRaw.map(normalizeDiagnostic).filter(Boolean)
+    const studentPlacement = studentPlacementRaw.map(normalizeDiagnostic).filter(Boolean)
 
     validationDiagnostics.value = validation
     sectionPlacementDiagnostics.value = sectionPlacement
@@ -257,6 +297,7 @@ const buildDiagnosticsData = (dataset, diagnostics) => {
 
     const bySectionId = new Map()
     const countsBySectionId = new Map()
+    const invalidCountsBySectionId = new Map()
 
     sectionPlacement.forEach((d) => {
         if (d.entityType !== 'section') return
@@ -270,6 +311,21 @@ const buildDiagnosticsData = (dataset, diagnostics) => {
         if (d.severity === 'non_blocking' || DECISION_CODES.has(d.code)) counts.trace += 1
     })
 
+    validation.forEach((d) => {
+        if (String(d.entityType || '').toLowerCase() !== 'section') return
+        const key = String(d.entityId)
+        if (!bySectionId.has(key)) bySectionId.set(key, [])
+        bySectionId.get(key).push(d)
+
+        if (!countsBySectionId.has(key)) countsBySectionId.set(key, { actionable: 0, trace: 0 })
+        const counts = countsBySectionId.get(key)
+        if (ACTIONABLE_SEVERITIES.has(d.severity)) counts.actionable += 1
+
+        if (d.severity === 'skip') {
+            invalidCountsBySectionId.set(key, (invalidCountsBySectionId.get(key) || 0) + 1)
+        }
+    })
+
     sectionDiagnosticsIndex.value = { bySectionId, countsBySectionId }
 
     const rows = (dataset?.sections || [])
@@ -279,6 +335,8 @@ const buildDiagnosticsData = (dataset, diagnostics) => {
             return {
                 ...s,
                 isPlaced,
+                isInvalid: (invalidCountsBySectionId.get(String(s.sectionId)) || 0) > 0,
+                invalidDiagnosticCount: invalidCountsBySectionId.get(String(s.sectionId)) || 0,
                 diagnosticCount: counts.actionable,
                 traceCount: counts.trace
             }
@@ -291,8 +349,15 @@ const buildDiagnosticsData = (dataset, diagnostics) => {
         })
 
     sectionRows.value = rows
-    unplacedSectionRows.value = rows.filter((s) => !s.isPlaced)
+    unplacedSectionRows.value = rows.filter((s) => !s.isPlaced && !s.isInvalid)
     placedSectionRows.value = rows.filter((s) => s.isPlaced)
+    invalidSectionRows.value = rows
+        .filter((s) => s.isInvalid)
+        .sort((a, b) => {
+            const invalidDelta = (b.invalidDiagnosticCount || 0) - (a.invalidDiagnosticCount || 0)
+            if (invalidDelta !== 0) return invalidDelta
+            return String(a.course_name || '').localeCompare(String(b.course_name || ''))
+        })
 
     const filtered = []
     validation.forEach((d) => {
@@ -311,9 +376,11 @@ const buildDiagnosticsData = (dataset, diagnostics) => {
 
     const metrics = {}
     sectionPlacement.forEach((d) => {
-        if (d.entityType !== 'system' || !d.metrics) return
+        const entityType = String(d.entityType || '').toLowerCase()
+        const isSystemDiagnostic = entityType === 'system' || d.entityId === 0 || d.entityId === '0'
+        if (!isSystemDiagnostic || !d.metrics) return
         Object.entries(d.metrics).forEach(([k, v]) => {
-            metrics[k] = v
+            metrics[normalizeMetricKey(k)] = v
         })
     })
     systemMetrics.value = metrics
@@ -332,8 +399,12 @@ const ensureInitialized = () => {
     initialized = true
 
     watch(
-        [() => store.localDataset, () => store.diagnostics],
-        ([dataset, diagnostics]) => {
+        [
+            () => store.localDataset,
+            () => store.localDataset?.sections,
+            () => store.diagnostics
+        ],
+        ([dataset, _sections, diagnostics]) => {
             buildReportData(dataset)
             buildDiagnosticsData(dataset, diagnostics)
         },
@@ -375,6 +446,7 @@ export function useDerivedSchedulerData() {
         sectionRows,
         unplacedSectionRows,
         placedSectionRows,
+        invalidSectionRows,
         systemAndDecisionDiagnostics,
         validationIssueCount,
         hasAnyDiagnostics,
