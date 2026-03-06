@@ -91,7 +91,11 @@ const runPlacement = async () => {
     const requestDataset = store.localDataset
     const datasetForPlacement = {
         ...requestDataset,
-        diagnostics: null
+        diagnostics: null,
+        settings: {
+            ...(requestDataset.settings || {}),
+            diagnosticsMode: 'trace'
+        }
     }
 
     // Clear diagnostics immediately for this version while a new run is in flight.

@@ -10,6 +10,7 @@ export const store = reactive({
     error: null,
     showIds: false,
     isCompressed: false,
+    showSectionTraceOnHover: false,
     selectionEpoch: 0,
     localDatasetRevision: 0,
     

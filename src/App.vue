@@ -106,6 +106,10 @@ const navItems = [
             <span v-if="!isCollapsed" class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Compressed</span>
             <ToggleSwitch v-model="store.isCompressed" v-tooltip.right="isCollapsed ? { value: 'Compressed View', pt: { text: 'text-xs font-bold' } } : null" />
         </div>
+        <div :class="['flex items-center transition-all duration-300', isCollapsed ? 'justify-center' : 'justify-between px-3']">
+            <span v-if="!isCollapsed" class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Trace Hover</span>
+            <ToggleSwitch v-model="store.showSectionTraceOnHover" v-tooltip.right="isCollapsed ? { value: 'Trace Overlay on Hover', pt: { text: 'text-xs font-bold' } } : null" />
+        </div>
         <Button 
             :icon="isDarkMode ? 'pi pi-sun' : 'pi pi-moon'" 
             :label="isCollapsed ? '' : (isDarkMode ? 'Light Mode' : 'Dark Mode')" 

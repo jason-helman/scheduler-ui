@@ -25,6 +25,68 @@ let gridScrollContainer = null
 let gridScrollIdleTimer = null
 let badgeFitRafId = null
 
+const TRACE_OVERLAY_CODES = new Set([
+    'DECISION_SUMMARY',
+    'CANDIDATE_REJECTED_FILTER',
+    'CANDIDATE_SELECTED',
+    'VALID_CANDIDATE_SUMMARY',
+    'VALID_CANDIDATE_SCORED',
+    'SECTION_FINAL_PLACEMENT'
+])
+
+const normalizeNumberList = (value) => {
+    if (Array.isArray(value)) {
+        return value
+            .map(v => Number(v))
+            .filter(v => Number.isFinite(v))
+    }
+
+    if (typeof value === 'string') {
+        return value
+            .split(',')
+            .map(v => Number(v.trim()))
+            .filter(v => Number.isFinite(v))
+    }
+
+    if (value == null) return []
+    const numeric = Number(value)
+    return Number.isFinite(numeric) ? [numeric] : []
+}
+
+const deriveTraceQuarterRange = (diagnostic, hoveredSection) => {
+    const metrics = diagnostic.metrics ?? diagnostic.meta ?? {}
+    const quarters = normalizeNumberList(metrics.quarters)
+        .map(q => Math.max(1, Math.min(4, q)))
+
+    if (quarters.length > 0) {
+        return {
+            startQ: Math.min(...quarters),
+            endQ: Math.max(...quarters)
+        }
+    }
+
+    if (diagnostic.code === 'SECTION_FINAL_PLACEMENT') {
+        const fallbackStart = Number(hoveredSection?.startQ)
+        const fallbackEnd = Number(hoveredSection?.endQ)
+        if (Number.isFinite(fallbackStart) && Number.isFinite(fallbackEnd)) {
+            return {
+                startQ: Math.max(1, Math.min(4, fallbackStart)),
+                endQ: Math.max(1, Math.min(4, fallbackEnd))
+            }
+        }
+    }
+
+    return null
+}
+
+const getTraceTone = (diagnostic) => {
+    const severity = String(diagnostic.severity || '')
+    if (severity === 'fatal' || severity === 'blocking' || severity === 'skip') return 'danger'
+    if (diagnostic.code === 'SECTION_FINAL_PLACEMENT') return 'success'
+    if (diagnostic.code === 'CANDIDATE_REJECTED_FILTER') return 'warning'
+    return 'info'
+}
+
 provide('master-grid-scroll-state', isMasterGridScrolling)
 provide('master-grid-badge-fit-epoch', masterBadgeFitEpoch)
 
@@ -32,6 +94,7 @@ const { periods, scheduleData, rowItemSize, virtualScrollerOptions } = useMaster
     localDataset: computed(() => store.localDataset),
     isCompressed: computed(() => store.isCompressed)
 })
+
 const ACTIONABLE_ALERT_SEVERITIES = new Set(['fatal', 'skip', 'blocking', 'preserved_conflict'])
 const sectionDiagnosticsCounts = computed(() => {
     const totalBySectionId = new Map()
@@ -92,6 +155,69 @@ const {
     rowItemSize,
     isCompressed: computed(() => store.isCompressed),
     isRelatedSection
+})
+
+const hoverTraceData = computed(() => {
+    if (!store.showSectionTraceOnHover) return null
+    if (!effectiveHoveredSection.value) return null
+
+    const hoveredSectionId = String(effectiveHoveredSection.value.sectionId)
+    const hoveredTeacherId = effectiveHoveredSection.value.teacherId == null
+        ? null
+        : String(effectiveHoveredSection.value.teacherId)
+
+    if (!hoveredTeacherId) return null
+
+    const diagnostics = (
+        store.localDataset?.diagnostics?.sectionPlacement
+        || store.localDataset?.diagnostics?.section_placement
+        || []
+    )
+
+    const entries = diagnostics
+        .map((diagnostic, idx) => {
+            const entityType = String(diagnostic.entityType ?? diagnostic.entity_type ?? '').toLowerCase()
+            const entityId = diagnostic.entityId ?? diagnostic.entity_id
+            const code = String(diagnostic.code || '')
+            const periodIds = (diagnostic.conflictingIds ?? diagnostic.conflicting_ids ?? [])
+                .map(id => String(id))
+
+            if (entityType !== 'section') return null
+            if (String(entityId) !== hoveredSectionId) return null
+            if (!TRACE_OVERLAY_CODES.has(code)) return null
+            if (periodIds.length === 0) return null
+
+            const quarterRange = deriveTraceQuarterRange(diagnostic, effectiveHoveredSection.value)
+            if (!quarterRange) return null
+            const message = String(diagnostic.message ?? diagnostic.log ?? diagnostic.reason ?? '').trim()
+            const rank = Number((diagnostic.metrics ?? diagnostic.meta ?? {}).rank)
+
+            return {
+                key: `${hoveredSectionId}-${idx}`,
+                code,
+                message,
+                severity: String(diagnostic.severity || 'non_blocking'),
+                periodIds,
+                startQ: quarterRange.startQ,
+                endQ: quarterRange.endQ,
+                rank: Number.isFinite(rank) ? rank : Number.POSITIVE_INFINITY,
+                tone: getTraceTone(diagnostic)
+            }
+        })
+        .filter(Boolean)
+        .sort((a, b) => {
+            const aIsFinal = a.code === 'SECTION_FINAL_PLACEMENT'
+            const bIsFinal = b.code === 'SECTION_FINAL_PLACEMENT'
+            if (aIsFinal !== bIsFinal) return aIsFinal ? 1 : -1
+            if (a.rank !== b.rank) return a.rank - b.rank
+            return String(a.code).localeCompare(String(b.code))
+        })
+
+    return {
+        sectionId: hoveredSectionId,
+        teacherId: hoveredTeacherId,
+        entries
+    }
 })
 
 const clearGridScrollIdleTimer = () => {
@@ -204,6 +330,7 @@ onBeforeUnmount(() => {
                         :section-diagnostics-counts="sectionDiagnosticsCounts"
                         :row-index="slotProps.index ?? 0"
                         :hovered-section="effectiveHoveredSection"
+                        :hover-trace-data="hoverTraceData"
                         :jump-pulse-section-id="jumpPulseSectionId"
                         :jump-pulse-visible="jumpPulseVisible"
                         @hover="setHoveredSection"
@@ -257,6 +384,7 @@ onBeforeUnmount(() => {
 :deep(.p-datatable-thead > tr > th:last-child) {
     border-right-width: 0 !important;
 }
+
 
 :deep(.p-datatable-tbody > tr > td.p-frozen-column) {
     border-right: 3px solid #cbd5e1 !important;
