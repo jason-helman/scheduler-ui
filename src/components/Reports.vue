@@ -108,24 +108,16 @@ const { reportStats: stats } = useDerivedSchedulerData()
                 </TabList>
                 <TabPanels class="min-h-0 flex-1 overflow-hidden">
                     <TabPanel value="0" class="h-full min-h-0 overflow-hidden !p-0">
-                        <div v-if="store.activeReportTab === '0'" class="h-full min-h-0">
-                            <CourseReport />
-                        </div>
+                        <CourseReport />
                     </TabPanel>
                     <TabPanel value="1" class="h-full min-h-0 overflow-hidden !p-0">
-                        <div v-if="store.activeReportTab === '1'" class="h-full min-h-0">
-                            <TeacherReport />
-                        </div>
+                        <TeacherReport />
                     </TabPanel>
                     <TabPanel value="2" class="h-full min-h-0 overflow-hidden !p-0">
-                        <div v-if="store.activeReportTab === '2'" class="h-full min-h-0">
-                            <RoomReport />
-                        </div>
+                        <RoomReport />
                     </TabPanel>
                     <TabPanel value="3" class="h-full min-h-0 overflow-hidden !p-0">
-                        <div v-if="store.activeReportTab === '3'" class="h-full min-h-0">
-                            <StudentReport />
-                        </div>
+                        <StudentReport />
                     </TabPanel>
                 </TabPanels>
             </Tabs>

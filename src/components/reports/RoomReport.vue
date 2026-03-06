@@ -35,7 +35,7 @@ const usageTableVirtualScrollerOptions = {
             </TabList>
             <TabPanels class="min-h-0 flex-1 overflow-hidden">
                 <TabPanel value="0" class="h-full min-h-0 overflow-hidden !p-0">
-                    <div v-if="activeRoomReportTab === '0'" class="min-h-0 h-full">
+                    <div class="min-h-0 h-full">
                     <DataTable
                         :value="roomUsage"
                         stripedRows
@@ -62,10 +62,10 @@ const usageTableVirtualScrollerOptions = {
                     </div>
                 </TabPanel>
                 <TabPanel value="1" class="h-full min-h-0 overflow-hidden !p-0">
-                    <div v-if="activeRoomReportTab === '1' && sectionsWithoutRoom.length === 0" class="p-5 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/30 dark:bg-emerald-900/5 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                    <div v-if="sectionsWithoutRoom.length === 0" class="p-5 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/30 dark:bg-emerald-900/5 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
                         No placed sections are missing classrooms.
                     </div>
-                    <div v-else-if="activeRoomReportTab === '1'" class="min-h-0 h-full">
+                    <div v-else class="min-h-0 h-full">
                     <DataTable
                         :value="sectionsWithoutRoom"
                         stripedRows
