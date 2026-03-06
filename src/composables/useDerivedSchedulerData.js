@@ -359,6 +359,8 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
         validationIssueCount: 0,
         hasAnyDiagnostics: false,
         systemMetrics: {},
+        periodOpportunitySummary: null,
+        periodOpportunityRows: [],
         diagnosticScopeIndex: new WeakMap(),
         idReferenceIndex: buildIdReferenceIndex(dataset)
     }
@@ -436,6 +438,8 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
     })
 
     const metrics = {}
+    const periodOpportunityRows = []
+    let periodOpportunitySummary = null
     sectionPlacement.forEach((d) => {
         const entityType = String(d.entityType || '').toLowerCase()
         const isSystemDiagnostic = entityType === 'system' || d.entityId === 0 || d.entityId === '0'
@@ -443,6 +447,26 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
         Object.entries(d.metrics).forEach(([k, v]) => {
             metrics[normalizeMetricKey(k)] = v
         })
+
+        if (d.metrics.metricType === 'period_opportunity') {
+            periodOpportunityRows.push({
+                periodId: d.metrics.periodId,
+                startTime: d.metrics.startTime || '-',
+                endTime: d.metrics.endTime || '-',
+                opportunityCount: Number(d.metrics.opportunityCount || 0),
+                assignedCount: Number(d.metrics.assignedCount || 0),
+                targetAssigned: Number(d.metrics.targetAssigned || 0),
+                opportunityShare: Number(d.metrics.opportunityShare || 0),
+                assignedShare: Number(d.metrics.assignedShare || 0),
+                deltaShare: Number(d.metrics.deltaShare || 0),
+                loadIndex: Number(d.metrics.loadIndex || 0),
+            })
+        } else if (d.metrics.metricType === 'period_opportunity_summary') {
+            periodOpportunitySummary = {
+                imbalanceScore: Number(d.metrics.imbalanceScore || 0),
+                periodCount: Number(d.metrics.periodCount || 0),
+            }
+        }
     })
 
     const scopeMap = new WeakMap()
@@ -469,6 +493,12 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
         validationIssueCount: validation.reduce((count, d) => count + (VALIDATION_ISSUE_SEVERITIES.has(d.severity) ? 1 : 0), 0),
         hasAnyDiagnostics: (validation.length > 0 || sectionPlacement.length > 0 || studentPlacement.length > 0),
         systemMetrics: metrics,
+        periodOpportunitySummary,
+        periodOpportunityRows: periodOpportunityRows.sort((a, b) => {
+            const startDelta = String(a.startTime || '').localeCompare(String(b.startTime || ''))
+            if (startDelta !== 0) return startDelta
+            return String(a.periodId || '').localeCompare(String(b.periodId || ''), undefined, { numeric: true })
+        }),
         diagnosticScopeIndex: scopeMap,
         idReferenceIndex: buildIdReferenceIndex(dataset)
     }
@@ -521,6 +551,8 @@ export function useDerivedSchedulerData() {
         validationIssueCount: computed(() => diagnosticsDerived.value.validationIssueCount),
         hasAnyDiagnostics: computed(() => diagnosticsDerived.value.hasAnyDiagnostics),
         systemMetrics: computed(() => diagnosticsDerived.value.systemMetrics),
+        periodOpportunitySummary: computed(() => diagnosticsDerived.value.periodOpportunitySummary),
+        periodOpportunityRows: computed(() => diagnosticsDerived.value.periodOpportunityRows),
 
         resolveIdName,
         getDiagnosticScope,
