@@ -19,7 +19,12 @@ const overloadedCount = computed(() => props.rows.filter((row) => row.loadIndex 
 const underusedCount = computed(() => props.rows.filter((row) => row.loadIndex < 0.85).length)
 const tableRows = 25
 
-const formatPercent = (value) => `${(Number(value || 0) * 100).toFixed(1)}%`
+const formatPercent = (value) => {
+    const pct = Number(value || 0) * 100
+    const rounded = Math.round(pct * 1000) / 1000
+    if (pct > 0 && rounded === 0) return '<0.001%'
+    return `${rounded.toFixed(3)}%`
+}
 const formatNumber = (value, digits = 2) => Number(value || 0).toFixed(digits)
 const loadIndexClass = (value) => {
     if (value > 1.15) return 'text-red-600 dark:text-red-400 font-bold'
