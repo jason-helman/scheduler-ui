@@ -56,6 +56,8 @@ const toggleLock = (sectionId) => {
 
 const goToDiagnostics = (section) => {
     store.selectedSectionId = section.sectionId
+    store.diagnosticsTargetSectionTab = '0'
+    store.diagnosticsExternalScrollKey += 1
     store.currentView = 'Diagnostics'
     showDialog.value = false
 }

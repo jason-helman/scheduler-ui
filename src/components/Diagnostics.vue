@@ -68,7 +68,9 @@ const consumeTargetSectionTab = () => {
     return false
 }
 
-watch([() => store.selectedSectionId, sectionRows], ([newId, sections]) => {
+watch([() => store.selectedSectionId, sectionRows, () => store.diagnosticsExternalScrollKey], ([newId, sections, externalScrollKey], oldState) => {
+    const prevExternalScrollKey = oldState?.[2]
+    const isExternalScrollRequest = prevExternalScrollKey != null && externalScrollKey !== prevExternalScrollKey
     if (newId != null && sections.length > 0) {
         const found = sections.find((s) => idsEqual(s.sectionId, newId))
         if (found) {
@@ -76,15 +78,17 @@ watch([() => store.selectedSectionId, sectionRows], ([newId, sections]) => {
             consumeTargetSectionTab()
         }
         if (found) {
-            const isLocalSelectionEcho = suppressScrollRequestFromLocalSelection.value && idsEqual(selectedSection.value?.sectionId, newId)
+            const isLocalSelectionEcho = suppressScrollRequestFromLocalSelection.value && idsEqual(selectedSection.value?.sectionId, newId) && !isExternalScrollRequest
 
             if (!idsEqual(selectedSection.value?.sectionId, newId)) {
                 selectedSection.value = found
             }
 
-            if (isLocalSelectionEcho) {
+            if (suppressScrollRequestFromLocalSelection.value && idsEqual(selectedSection.value?.sectionId, newId)) {
                 suppressScrollRequestFromLocalSelection.value = false
-            } else {
+            }
+
+            if (!isLocalSelectionEcho || isExternalScrollRequest) {
                 sectionScrollRequestKey.value += 1
             }
         }

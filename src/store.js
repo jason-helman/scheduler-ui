@@ -17,6 +17,7 @@ export const store = reactive({
     activeReportTab: '0',
     selectedSectionId: null,
     diagnosticsTargetSectionTab: null,
+    diagnosticsExternalScrollKey: 0,
 
     // Actions
     toggleLock(sectionId) {
