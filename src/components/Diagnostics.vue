@@ -88,9 +88,7 @@ watch(selectedSection, (newSection, oldSection) => {
     }
     const sectionChanged = !idsEqual(newSection?.sectionId, oldSection?.sectionId)
     if (sectionChanged) {
-        if (!consumeTargetSectionTab()) {
-            activeSectionDiagnosticTab.value = '0'
-        }
+        consumeTargetSectionTab()
     }
 })
 </script>
@@ -138,7 +136,6 @@ watch(selectedSection, (newSection, oldSection) => {
                     <TabPanels class="min-h-0 flex-1 overflow-hidden">
                         <TabPanel value="0" class="h-full min-h-0 overflow-hidden !p-0">
                             <SectionDiagnosticsPanel
-                                v-if="activeDiagnosticsTab === '0'"
                                 :section-rows="sectionRows"
                                 :unplaced-section-rows="unplacedSectionRows"
                                 :placed-section-rows="placedSectionRows"
@@ -161,7 +158,6 @@ watch(selectedSection, (newSection, oldSection) => {
 
                         <TabPanel value="1" class="h-full min-h-0 overflow-hidden !p-0">
                             <SystemDecisionPanel
-                                v-if="activeDiagnosticsTab === '1'"
                                 :diagnostics="systemAndDecisionDiagnostics"
                                 :show-ids="store.showIds"
                                 :resolve-id-name="resolveIdName"
@@ -171,7 +167,6 @@ watch(selectedSection, (newSection, oldSection) => {
 
                         <TabPanel value="2" class="h-full min-h-0 overflow-hidden !p-0">
                             <ValidationPanel
-                                v-if="activeDiagnosticsTab === '2'"
                                 :validation-diagnostics="validationDiagnostics"
                                 :validation-issue-count="validationIssueCount"
                                 :show-ids="store.showIds"
