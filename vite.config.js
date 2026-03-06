@@ -77,6 +77,7 @@ export default defineConfig({
                 courseId: c.course_id,
                 name: c.name,
                 courseCode: c.course_code,
+                semester: opt?.semester || null,
                 capacity: opt?.capacity || 25,
                 priority: opt?.priority || 10,
                 departments: courseDepts.filter(d => d.data_id === c.course_id).map(d => d.department_id),

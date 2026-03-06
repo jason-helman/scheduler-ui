@@ -18,7 +18,7 @@ const props = defineProps({
     }
 })
 
-const emit = defineEmits(['toggle-lock'])
+const emit = defineEmits(['toggle-lock', 'open-course-info'])
 </script>
 
 <template>
@@ -30,16 +30,18 @@ const emit = defineEmits(['toggle-lock'])
             >
                 {{ compactBadgeCount }}
             </span>
-            <div
+            <button
+                type="button"
                 :class="[
-                    'font-black uppercase tracking-tighter line-clamp-1 leading-tight mb-0.5 min-w-0 flex-1',
+                    'font-black uppercase tracking-tighter line-clamp-1 leading-tight mb-0.5 min-w-0 flex-1 text-left cursor-pointer hover:underline decoration-dotted underline-offset-2',
                     isCompressed ? 'text-[8px]' : 'text-[9px]',
                     section.isLab ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400'
                 ]"
-                v-tooltip.top="section.course_name"
+                @click.stop="emit('open-course-info', { section, event: $event })"
+                v-tooltip.top="'Click for course details'"
             >
                 {{ section.course_name }}
-            </div>
+            </button>
         </div>
         <i
             :class="[

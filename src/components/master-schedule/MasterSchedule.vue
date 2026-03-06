@@ -8,15 +8,24 @@ import UnplacedSectionsDialog from './UnplacedSectionsDialog.vue'
 import ScheduleCell from './ScheduleCell.vue'
 import TeacherSummaryCell from './TeacherSummaryCell.vue'
 import PeriodHeaderCell from './PeriodHeaderCell.vue'
+import { InfoPopup } from '../common'
 
 import { store } from '../../store'
 import { useMasterScheduleTableConfig } from '../../composables/useMasterScheduleTableConfig'
 import { useSectionNavigation } from '../../composables/useSectionNavigation'
 import { useViewportTableHeight } from '../../composables/useViewportTableHeight'
-import { isRelatedSection } from '../../utils'
+import { getCourseByIdMap, isRelatedSection } from '../../utils'
 
 const showUnplacedDialog = ref(false)
 const selectedTeacherIdForUnplaced = ref(null)
+const courseInfoPopup = ref({
+    visible: false,
+    section: null,
+    course: null,
+    top: 0,
+    left: 0,
+    width: 320
+})
 const tableRef = ref(null)
 const tableHostRef = ref(null)
 const isMasterGridScrolling = ref(false)
@@ -132,6 +141,107 @@ const openSectionAlerts = (sectionId) => {
     store.diagnosticsTargetSectionTab = '0'
     store.diagnosticsExternalScrollKey += 1
     store.currentView = 'Diagnostics'
+}
+
+const closeCourseInfoPopup = () => {
+    courseInfoPopup.value.visible = false
+}
+
+const getCourseInfoRows = (section, course) => {
+    if (!section) return []
+
+    const coerceText = (value) => {
+        if (value == null || value === '') return 'N/A'
+        if (Array.isArray(value)) return value.length > 0 ? value.join(', ') : 'N/A'
+        return String(value)
+    }
+
+    const formatQuarterOptions = (quarterLength) => {
+        if (!Array.isArray(quarterLength) || quarterLength.length === 0) return 'N/A'
+
+        const formatGroup = (group) => {
+            if (!Array.isArray(group) || group.length === 0) return null
+            const normalized = group
+                .map(v => Number(v))
+                .filter(v => Number.isFinite(v))
+                .sort((a, b) => a - b)
+            if (normalized.length === 0) return null
+            if (normalized.length === 1) return `Q${normalized[0]}`
+            return normalized.map(q => `Q${q}`).join('-')
+        }
+
+        const labels = quarterLength
+            .map(formatGroup)
+            .filter(Boolean)
+
+        return labels.length > 0 ? labels.join(' | ') : 'N/A'
+    }
+
+    const courseCode = section.courseCode || section.course_code || course?.courseCode || course?.course_code || course?.code
+    const quarterOptions = formatQuarterOptions(course?.quarterLength || section?.quarterLength)
+    const capacity = course?.capacity ?? section.capacity ?? null
+    const courseDepartments = course?.departmentIds || course?.department_ids || section.departmentIds || section.department_ids
+
+    const rows = [
+        { label: 'Course Code', value: coerceText(courseCode) },
+        { label: 'Quarter Options', value: quarterOptions },
+        { label: 'Teacher', value: coerceText(section.teacher_name || section.teacherName) },
+        { label: 'Room', value: coerceText(section.room_name || section.classroom_name) },
+        { label: 'Capacity', value: coerceText(capacity) },
+        { label: 'Students', value: coerceText(section.student_count) },
+        { label: 'Selected Quarters', value: coerceText(section.quarters) },
+        { label: 'Selected Days', value: coerceText(section.days) },
+        { label: 'Departments', value: coerceText(courseDepartments) }
+    ]
+
+    if (store.showIds) {
+        rows.push(
+            {
+                label: 'Course ID',
+                value: coerceText(section.courseId ?? course?.courseId),
+                copyValue: section.courseId ?? course?.courseId,
+                copyLabel: 'Course ID'
+            },
+            {
+                label: 'Section ID',
+                value: coerceText(section.sectionId),
+                copyValue: section.sectionId,
+                copyLabel: 'Section ID'
+            }
+        )
+    }
+
+    return rows
+}
+
+const courseInfoPopupRows = computed(() => getCourseInfoRows(courseInfoPopup.value.section, courseInfoPopup.value.course))
+
+const openCourseInfoPopup = ({ section, event }) => {
+    if (!section || !event?.currentTarget) return
+
+    const course = getCourseByIdMap(store.localDataset).get(section.courseId) || null
+    const triggerRect = event.currentTarget.getBoundingClientRect()
+    const panelWidth = store.isCompressed ? 280 : 320
+    const panelHeightEstimate = 300
+    const viewportPad = 12
+    const gutter = 10
+
+    let left = triggerRect.left + (triggerRect.width / 2) - (panelWidth / 2)
+    left = Math.max(viewportPad, Math.min(left, window.innerWidth - panelWidth - viewportPad))
+
+    let top = triggerRect.bottom + gutter
+    if ((top + panelHeightEstimate) > (window.innerHeight - viewportPad)) {
+        top = Math.max(viewportPad, triggerRect.top - panelHeightEstimate - gutter)
+    }
+
+    courseInfoPopup.value = {
+        visible: true,
+        section,
+        course,
+        top,
+        left,
+        width: panelWidth
+    }
 }
 
 const { tableScrollHeight } = useViewportTableHeight({
@@ -346,6 +456,7 @@ onBeforeUnmount(() => {
                         @jump-to-section="jumpToSection"
                         @open-diagnostics="openSectionDiagnostics"
                         @open-alerts="openSectionAlerts"
+                        @open-course-info="openCourseInfoPopup"
                     />
                 </template>
             </Column>
@@ -357,6 +468,17 @@ onBeforeUnmount(() => {
     <UnplacedSectionsDialog 
         v-model:visible="showUnplacedDialog" 
         :teacher-id="selectedTeacherIdForUnplaced" 
+    />
+
+    <InfoPopup
+        :visible="courseInfoPopup.visible"
+        :title="courseInfoPopup.section?.course_name || 'Course Details'"
+        subtitle="Section Snapshot"
+        :rows="courseInfoPopupRows"
+        :top="courseInfoPopup.top"
+        :left="courseInfoPopup.left"
+        :width="courseInfoPopup.width"
+        @close="closeCourseInfoPopup"
     />
   </div>
 </template>

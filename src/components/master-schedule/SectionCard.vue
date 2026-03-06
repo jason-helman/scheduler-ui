@@ -26,7 +26,8 @@ const emit = defineEmits([
     'jump-to-teacher',
     'jump-to-section',
     'open-diagnostics',
-    'open-alerts'
+    'open-alerts',
+    'open-course-info'
 ])
 const showStudentsDialog = ref(false)
 const bodyEl = ref(null)
@@ -223,6 +224,7 @@ if (masterBadgeFitEpoch) {
                 :use-compact-badge-overlay="useCompactBadgeOverlay"
                 :compact-badge-count="compactBadgeCount"
                 @toggle-lock="id => emit('toggle-lock', id)"
+                @open-course-info="payload => emit('open-course-info', payload)"
             />
 
             <SectionCardBadges
