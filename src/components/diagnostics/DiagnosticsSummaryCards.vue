@@ -1,12 +1,31 @@
 <script setup>
 import Card from 'primevue/card'
 
-defineProps({
+const props = defineProps({
     systemMetrics: {
         type: Object,
         required: true
     }
 })
+
+const compactNumber = new Intl.NumberFormat(undefined, {
+    notation: 'compact',
+    maximumFractionDigits: 2,
+})
+
+const fullNumber = new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: 4,
+})
+
+const formatScoreCompact = (value) => {
+    if (value == null || Number.isNaN(Number(value))) return '-'
+    return compactNumber.format(Number(value))
+}
+
+const formatScoreFull = (value) => {
+    if (value == null || Number.isNaN(Number(value))) return '-'
+    return fullNumber.format(Number(value))
+}
 </script>
 
 <template>
@@ -41,11 +60,20 @@ defineProps({
                         <span
                             class="text-4xl font-black"
                             :class="(systemMetrics.globalScoreDelta || 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'"
+                            :title="formatScoreFull(systemMetrics.globalScoreDelta)"
                         >
-                            {{ systemMetrics.globalScoreDelta ?? '-' }}
+                            {{ formatScoreCompact(systemMetrics.globalScoreDelta) }}
                         </span>
                         <span class="text-xs font-bold text-gray-400 mb-1">
-                            {{ systemMetrics.globalScoreBeforeTabu != null && systemMetrics.globalScoreAfterTabu != null ? `${systemMetrics.globalScoreBeforeTabu} -> ${systemMetrics.globalScoreAfterTabu}` : '' }}
+                            <span
+                                :title="props.systemMetrics.globalScoreBeforeTabu != null && props.systemMetrics.globalScoreAfterTabu != null
+                                    ? `${formatScoreFull(props.systemMetrics.globalScoreBeforeTabu)} -> ${formatScoreFull(props.systemMetrics.globalScoreAfterTabu)}`
+                                    : ''"
+                            >
+                                {{ props.systemMetrics.globalScoreBeforeTabu != null && props.systemMetrics.globalScoreAfterTabu != null
+                                    ? `${formatScoreCompact(props.systemMetrics.globalScoreBeforeTabu)} -> ${formatScoreCompact(props.systemMetrics.globalScoreAfterTabu)}`
+                                    : '' }}
+                            </span>
                         </span>
                     </div>
                 </div>

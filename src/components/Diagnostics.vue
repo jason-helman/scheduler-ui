@@ -205,6 +205,7 @@ watch(selectedSection, (newSection, oldSection) => {
                                 :summary="periodOpportunitySummary"
                                 :teacher-break-rows="teacherBreakRows"
                                 :teacher-break-summary="teacherBreakSummary"
+                                :resolve-id-name="resolveIdName"
                             />
                         </TabPanel>
 

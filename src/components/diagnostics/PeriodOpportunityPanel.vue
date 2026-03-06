@@ -20,6 +20,10 @@ const props = defineProps({
     teacherBreakSummary: {
         type: Object,
         default: null
+    },
+    resolveIdName: {
+        type: Function,
+        required: true
     }
 })
 
@@ -38,6 +42,11 @@ const formatPercent = (value) => {
     return `${rounded.toFixed(3)}%`
 }
 const formatNumber = (value, digits = 2) => Number(value || 0).toFixed(digits)
+const resolvePeriodName = (periodId) => {
+    const label = props.resolveIdName(periodId, 'period')
+    if (typeof label !== 'string') return label
+    return label.replace(/\s*\([^)]*\)\s*$/, '')
+}
 const loadIndexClass = (value) => {
     if (value > 1.15) return 'text-red-600 dark:text-red-400 font-bold'
     if (value < 0.85) return 'text-amber-600 dark:text-amber-400 font-bold'
@@ -74,18 +83,24 @@ const loadIndexClass = (value) => {
                     scrollable
                     scrollHeight="flex"
                     tableStyle="min-width: 76rem"
+                    sortField="startTime"
+                    :sortOrder="1"
                     paginator
                     :rows="tableRows"
                     :rowsPerPageOptions="[25, 50, 100]"
                     paginatorTemplate="RowsPerPageDropdown PrevPageLink PageLinks NextPageLink CurrentPageReport"
                     currentPageReportTemplate="{first}-{last} of {totalRecords}"
                 >
-                    <Column header="Time Window" style="width: 13rem">
+                    <Column field="startTime" header="Time Window" sortable style="width: 13rem">
                         <template #body="slotProps">
                             {{ slotProps.data.startTime }} - {{ slotProps.data.endTime }}
                         </template>
                     </Column>
-                    <Column field="periodId" header="Period ID" sortable style="width: 9rem" />
+                    <Column header="Period" sortable style="width: 14rem">
+                        <template #body="slotProps">
+                            {{ resolvePeriodName(slotProps.data.periodId) }}
+                        </template>
+                    </Column>
                     <Column field="opportunityCount" header="Opportunity" sortable style="width: 8rem" />
                     <Column field="assignedCount" header="Assigned" sortable style="width: 8rem" />
                     <Column header="Opportunity %" sortable style="width: 10rem">
@@ -145,18 +160,24 @@ const loadIndexClass = (value) => {
                     scrollable
                     scrollHeight="flex"
                     tableStyle="min-width: 62rem"
+                    sortField="startTime"
+                    :sortOrder="1"
                     paginator
                     :rows="tableRows"
                     :rowsPerPageOptions="[25, 50, 100]"
                     paginatorTemplate="RowsPerPageDropdown PrevPageLink PageLinks NextPageLink CurrentPageReport"
                     currentPageReportTemplate="{first}-{last} of {totalRecords}"
                 >
-                    <Column header="Time Window" style="width: 13rem">
+                    <Column field="startTime" header="Time Window" sortable style="width: 13rem">
                         <template #body="slotProps">
                             {{ slotProps.data.startTime }} - {{ slotProps.data.endTime }}
                         </template>
                     </Column>
-                    <Column field="periodId" header="Period ID" sortable style="width: 9rem" />
+                    <Column header="Period" sortable style="width: 14rem">
+                        <template #body="slotProps">
+                            {{ resolvePeriodName(slotProps.data.periodId) }}
+                        </template>
+                    </Column>
                     <Column field="teacherBreakCount" header="Break Count" sortable style="width: 9rem" />
                     <Column field="teacherWithBreakCount" header="Teachers" sortable style="width: 8rem" />
                     <Column header="Break Share %" sortable style="width: 10rem">

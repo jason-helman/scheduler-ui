@@ -453,8 +453,9 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
         })
 
         if (d.metrics.metricType === 'period_opportunity') {
+            const periodId = d.conflictingIds?.[0] ?? d.metrics.periodId
             periodOpportunityRows.push({
-                periodId: d.metrics.periodId,
+                periodId,
                 startTime: d.metrics.startTime || '-',
                 endTime: d.metrics.endTime || '-',
                 opportunityCount: Number(d.metrics.opportunityCount || 0),
@@ -471,8 +472,9 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
                 periodCount: Number(d.metrics.periodCount || 0),
             }
         } else if (d.metrics.metricType === 'teacher_break_period') {
+            const periodId = d.conflictingIds?.[0] ?? d.metrics.periodId
             teacherBreakRows.push({
-                periodId: d.metrics.periodId,
+                periodId,
                 startTime: d.metrics.startTime || '-',
                 endTime: d.metrics.endTime || '-',
                 teacherBreakCount: Number(d.metrics.teacherBreakCount || 0),
