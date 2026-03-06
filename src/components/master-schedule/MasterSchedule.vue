@@ -190,7 +190,10 @@ const hoverTraceData = computed(() => {
             const quarterRange = deriveTraceQuarterRange(diagnostic, effectiveHoveredSection.value)
             if (!quarterRange) return null
             const message = String(diagnostic.message ?? diagnostic.log ?? diagnostic.reason ?? '').trim()
-            const rank = Number((diagnostic.metrics ?? diagnostic.meta ?? {}).rank)
+            const metrics = diagnostic.metrics ?? diagnostic.meta ?? {}
+            const rank = Number(metrics.rank)
+            const greedyScore = Number(metrics.greedyScore)
+            const finalScore = Number(metrics.finalScore)
 
             return {
                 key: `${hoveredSectionId}-${idx}`,
@@ -201,6 +204,9 @@ const hoverTraceData = computed(() => {
                 startQ: quarterRange.startQ,
                 endQ: quarterRange.endQ,
                 rank: Number.isFinite(rank) ? rank : Number.POSITIVE_INFINITY,
+                greedyScore: Number.isFinite(greedyScore) ? greedyScore : null,
+                finalScore: Number.isFinite(finalScore) ? finalScore : null,
+                metrics,
                 tone: getTraceTone(diagnostic)
             }
         })
