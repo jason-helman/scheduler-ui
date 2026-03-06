@@ -346,6 +346,9 @@ watch(() => props.hoveredSection, (newTarget) => {
     backdrop-filter: blur(1px);
     padding: 0.3rem 0.4rem;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .trace-overlay-card__code {
@@ -374,8 +377,10 @@ watch(() => props.hoveredSection, (newTarget) => {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    max-height: 100%;
-    overflow: auto;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
     padding-right: 2px;
 }
 
