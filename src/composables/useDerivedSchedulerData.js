@@ -361,6 +361,8 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
         systemMetrics: {},
         periodOpportunitySummary: null,
         periodOpportunityRows: [],
+        teacherBreakSummary: null,
+        teacherBreakRows: [],
         diagnosticScopeIndex: new WeakMap(),
         idReferenceIndex: buildIdReferenceIndex(dataset)
     }
@@ -440,6 +442,8 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
     const metrics = {}
     const periodOpportunityRows = []
     let periodOpportunitySummary = null
+    const teacherBreakRows = []
+    let teacherBreakSummary = null
     sectionPlacement.forEach((d) => {
         const entityType = String(d.entityType || '').toLowerCase()
         const isSystemDiagnostic = entityType === 'system' || d.entityId === 0 || d.entityId === '0'
@@ -464,6 +468,21 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
         } else if (d.metrics.metricType === 'period_opportunity_summary') {
             periodOpportunitySummary = {
                 imbalanceScore: Number(d.metrics.imbalanceScore || 0),
+                periodCount: Number(d.metrics.periodCount || 0),
+            }
+        } else if (d.metrics.metricType === 'teacher_break_period') {
+            teacherBreakRows.push({
+                periodId: d.metrics.periodId,
+                startTime: d.metrics.startTime || '-',
+                endTime: d.metrics.endTime || '-',
+                teacherBreakCount: Number(d.metrics.teacherBreakCount || 0),
+                teacherBreakShare: Number(d.metrics.teacherBreakShare || 0),
+                teacherWithBreakCount: Number(d.metrics.teacherWithBreakCount || 0),
+            })
+        } else if (d.metrics.metricType === 'teacher_break_summary') {
+            teacherBreakSummary = {
+                totalTeacherBreaks: Number(d.metrics.totalTeacherBreaks || 0),
+                breakConcentrationIndex: Number(d.metrics.breakConcentrationIndex || 0),
                 periodCount: Number(d.metrics.periodCount || 0),
             }
         }
@@ -495,6 +514,12 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
         systemMetrics: metrics,
         periodOpportunitySummary,
         periodOpportunityRows: periodOpportunityRows.sort((a, b) => {
+            const startDelta = String(a.startTime || '').localeCompare(String(b.startTime || ''))
+            if (startDelta !== 0) return startDelta
+            return String(a.periodId || '').localeCompare(String(b.periodId || ''), undefined, { numeric: true })
+        }),
+        teacherBreakSummary,
+        teacherBreakRows: teacherBreakRows.sort((a, b) => {
             const startDelta = String(a.startTime || '').localeCompare(String(b.startTime || ''))
             if (startDelta !== 0) return startDelta
             return String(a.periodId || '').localeCompare(String(b.periodId || ''), undefined, { numeric: true })
@@ -553,6 +578,8 @@ export function useDerivedSchedulerData() {
         systemMetrics: computed(() => diagnosticsDerived.value.systemMetrics),
         periodOpportunitySummary: computed(() => diagnosticsDerived.value.periodOpportunitySummary),
         periodOpportunityRows: computed(() => diagnosticsDerived.value.periodOpportunityRows),
+        teacherBreakSummary: computed(() => diagnosticsDerived.value.teacherBreakSummary),
+        teacherBreakRows: computed(() => diagnosticsDerived.value.teacherBreakRows),
 
         resolveIdName,
         getDiagnosticScope,

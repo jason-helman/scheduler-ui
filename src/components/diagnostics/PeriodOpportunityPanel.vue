@@ -12,11 +12,23 @@ const props = defineProps({
     summary: {
         type: Object,
         default: null
+    },
+    teacherBreakRows: {
+        type: Array,
+        default: () => []
+    },
+    teacherBreakSummary: {
+        type: Object,
+        default: null
     }
 })
 
 const overloadedCount = computed(() => props.rows.filter((row) => row.loadIndex > 1.15).length)
 const underusedCount = computed(() => props.rows.filter((row) => row.loadIndex < 0.85).length)
+const mostBreakHeavyPeriod = computed(() => {
+    if (!props.teacherBreakRows.length) return null
+    return [...props.teacherBreakRows].sort((a, b) => b.teacherBreakCount - a.teacherBreakCount)[0]
+})
 const tableRows = 25
 
 const formatPercent = (value) => {
@@ -34,8 +46,8 @@ const loadIndexClass = (value) => {
 </script>
 
 <template>
-    <div class="h-full min-h-0 flex flex-col overflow-hidden">
-        <div class="card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 flex-1 min-h-0 flex flex-col overflow-hidden">
+    <div class="h-full min-h-0 flex flex-col gap-4 overflow-hidden">
+        <div class="card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 min-h-0 flex-1 flex flex-col overflow-hidden">
             <div class="flex flex-wrap items-center justify-between gap-3 mb-4 px-2">
                 <h3 class="text-xl font-black">Opportunity-Adjusted Period Load</h3>
                 <div class="flex items-center gap-2">
@@ -101,6 +113,55 @@ const loadIndexClass = (value) => {
                             <span :class="loadIndexClass(slotProps.data.loadIndex)">
                                 {{ formatNumber(slotProps.data.loadIndex, 3) }}
                             </span>
+                        </template>
+                    </Column>
+                </DataTable>
+            </div>
+        </div>
+
+        <div class="card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 min-h-0 flex-1 flex flex-col overflow-hidden">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4 px-2">
+                <h3 class="text-xl font-black">Teacher Break Concentration</h3>
+                <div class="flex items-center gap-2">
+                    <Badge :value="`Rows ${teacherBreakRows.length}`" severity="info" />
+                    <Badge v-if="mostBreakHeavyPeriod" :value="`Max ${mostBreakHeavyPeriod.teacherBreakCount}`" severity="contrast" />
+                </div>
+            </div>
+
+            <div v-if="teacherBreakSummary" class="mb-4 px-2 text-sm font-semibold text-gray-600 dark:text-gray-300">
+                Concentration Index: <span class="font-black text-gray-900 dark:text-white">{{ formatNumber(teacherBreakSummary.breakConcentrationIndex, 4) }}</span>
+                <span class="mx-2">|</span>
+                Total Breaks: <span class="font-black text-gray-900 dark:text-white">{{ teacherBreakSummary.totalTeacherBreaks }}</span>
+            </div>
+
+            <div v-if="teacherBreakRows.length === 0" class="p-6 rounded-2xl border border-blue-100 dark:border-blue-900/30 bg-blue-50/30 dark:bg-blue-900/5 text-sm font-semibold text-blue-700 dark:text-blue-400">
+                No teacher break diagnostics were emitted.
+            </div>
+            <div v-else class="min-h-0 flex-1 overflow-hidden">
+                <DataTable
+                    :value="teacherBreakRows"
+                    stripedRows
+                    class="p-datatable-sm h-full"
+                    scrollable
+                    scrollHeight="flex"
+                    tableStyle="min-width: 62rem"
+                    paginator
+                    :rows="tableRows"
+                    :rowsPerPageOptions="[25, 50, 100]"
+                    paginatorTemplate="RowsPerPageDropdown PrevPageLink PageLinks NextPageLink CurrentPageReport"
+                    currentPageReportTemplate="{first}-{last} of {totalRecords}"
+                >
+                    <Column header="Time Window" style="width: 13rem">
+                        <template #body="slotProps">
+                            {{ slotProps.data.startTime }} - {{ slotProps.data.endTime }}
+                        </template>
+                    </Column>
+                    <Column field="periodId" header="Period ID" sortable style="width: 9rem" />
+                    <Column field="teacherBreakCount" header="Break Count" sortable style="width: 9rem" />
+                    <Column field="teacherWithBreakCount" header="Teachers" sortable style="width: 8rem" />
+                    <Column header="Break Share %" sortable style="width: 10rem">
+                        <template #body="slotProps">
+                            {{ formatPercent(slotProps.data.teacherBreakShare) }}
                         </template>
                     </Column>
                 </DataTable>

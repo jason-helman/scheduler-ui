@@ -35,6 +35,8 @@ const {
     systemMetrics,
     periodOpportunitySummary,
     periodOpportunityRows,
+    teacherBreakSummary,
+    teacherBreakRows,
     resolveIdName,
     getDiagnosticScope,
     isActionableSeverity,
@@ -201,6 +203,8 @@ watch(selectedSection, (newSection, oldSection) => {
                             <PeriodOpportunityPanel
                                 :rows="periodOpportunityRows"
                                 :summary="periodOpportunitySummary"
+                                :teacher-break-rows="teacherBreakRows"
+                                :teacher-break-summary="teacherBreakSummary"
                             />
                         </TabPanel>
 
