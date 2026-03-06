@@ -103,6 +103,18 @@ const { periods, scheduleData, rowItemSize, virtualScrollerOptions } = useMaster
     localDataset: computed(() => store.localDataset),
     isCompressed: computed(() => store.isCompressed)
 })
+const periodLabelById = computed(() => {
+    const labels = new Map()
+    periods.value.forEach((period) => {
+        const id = period.coursePeriodId
+        if (id == null) return
+        const start = period.startTime || period.start_time || ''
+        const end = period.endTime || period.end_time || ''
+        const timeWindow = start && end ? ` (${start}-${end})` : ''
+        labels.set(String(id), `P${id}${timeWindow}`)
+    })
+    return labels
+})
 
 const ACTIONABLE_ALERT_SEVERITIES = new Set(['fatal', 'skip', 'blocking', 'preserved_conflict'])
 const sectionDiagnosticsCounts = computed(() => {
@@ -177,14 +189,32 @@ const getCourseInfoRows = (section, course) => {
         return labels.length > 0 ? labels.join(' | ') : 'N/A'
     }
 
+    const formatRestrictedPeriods = (value) => {
+        const list = Array.isArray(value) ? value : []
+        if (list.length === 0) return 'None'
+
+        const labels = list.map((periodId) => {
+            const key = String(periodId)
+            return periodLabelById.value.get(key) || `P${key}`
+        })
+        return labels.join(', ')
+    }
+
     const courseCode = section.courseCode || section.course_code || course?.courseCode || course?.course_code || course?.code
     const quarterOptions = formatQuarterOptions(course?.quarterLength || section?.quarterLength)
     const capacity = course?.capacity ?? section.capacity ?? null
     const courseDepartments = course?.departmentIds || course?.department_ids || section.departmentIds || section.department_ids
+    const courseRestrictedPeriods =
+        course?.restrictedCoursePeriods ||
+        course?.restricted_course_periods ||
+        section?.restrictedCoursePeriods ||
+        section?.restricted_course_periods ||
+        []
 
     const rows = [
         { label: 'Course Code', value: coerceText(courseCode) },
         { label: 'Quarter Options', value: quarterOptions },
+        { label: 'Restricted Periods', value: formatRestrictedPeriods(courseRestrictedPeriods) },
         { label: 'Teacher', value: coerceText(section.teacher_name || section.teacherName) },
         { label: 'Room', value: coerceText(section.room_name || section.classroom_name) },
         { label: 'Capacity', value: coerceText(capacity) },
