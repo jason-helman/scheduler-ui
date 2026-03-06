@@ -31,7 +31,11 @@ defineProps({
                 <h3 class="text-xl font-black">System & Decision Diagnostics</h3>
                 <Badge :value="diagnostics.length" severity="info" />
             </div>
+            <div v-if="diagnostics.length === 0" class="p-6 rounded-2xl border border-blue-100 dark:border-blue-900/30 bg-blue-50/30 dark:bg-blue-900/5 text-sm font-semibold text-blue-700 dark:text-blue-400">
+                There are currently no system or decision diagnostics.
+            </div>
             <DataTable
+                v-else
                 :value="diagnostics"
                 stripedRows
                 class="p-datatable-sm"

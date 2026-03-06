@@ -2,6 +2,7 @@
 import { computed, ref, shallowRef, watch } from 'vue'
 import { store } from '../store'
 import Badge from 'primevue/badge'
+import Card from 'primevue/card'
 import Tabs from 'primevue/tabs'
 import TabList from 'primevue/tablist'
 import Tab from 'primevue/tab'
@@ -112,6 +113,13 @@ const systemAndDecisionDiagnostics = computed(() =>
 )
 const validationIssueCount = computed(() =>
     validationDiagnostics.value.filter((d) => isValidationIssueSeverity(d.severity)).length
+)
+const hasAnyDiagnostics = computed(() =>
+    Boolean(store.diagnostics) && (
+        validationDiagnostics.value.length > 0 ||
+        sectionPlacementDiagnostics.value.length > 0 ||
+        studentPlacementDiagnostics.value.length > 0
+    )
 )
 
 const diagnosticScopeIndex = shallowRef(new WeakMap())
@@ -277,7 +285,14 @@ watch(selectedSection, (newSection, oldSection) => {
         </div>
 
         <div v-else class="flex-1 min-h-0 flex flex-col animate-in fade-in duration-500 overflow-hidden">
-            <DiagnosticsSummaryCards v-if="store.diagnostics" :system-metrics="systemMetrics" />
+            <DiagnosticsSummaryCards v-if="hasAnyDiagnostics" :system-metrics="systemMetrics" />
+            <Card v-else class="!shadow-sm !rounded-2xl border border-gray-100 dark:border-gray-800 mb-6 shrink-0">
+                <template #content>
+                    <div class="p-2 text-sm font-semibold text-gray-500 dark:text-gray-400">
+                        There are currently no diagnostics to show.
+                    </div>
+                </template>
+            </Card>
 
             <div class="min-h-0 flex-1 overflow-hidden">
                 <Tabs v-model:value="activeDiagnosticsTab" class="h-full min-h-0 flex flex-col">
