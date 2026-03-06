@@ -45,22 +45,22 @@ const stats = computed(() => {
 </script>
 
 <template>
-    <div class="space-y-8">
-        <div class="flex items-center justify-between mb-2">
+    <div class="h-full min-h-0 flex flex-col gap-6">
+        <div class="flex items-center justify-between">
             <h2 class="text-3xl font-black tracking-tight text-gray-900 dark:text-white">System Reports</h2>
             <div v-if="store.selectedVersion" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-xs font-bold text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
                 {{ store.selectedVersion.schedule_name }}
             </div>
         </div>
 
-        <div v-if="!store.localDataset" class="py-20 text-center bg-white dark:bg-gray-900 rounded-3xl border border-dashed border-gray-300 dark:border-gray-700">
+        <div v-if="!store.localDataset" class="flex-1 min-h-0 py-20 text-center bg-white dark:bg-gray-900 rounded-3xl border border-dashed border-gray-300 dark:border-gray-700">
             <i class="pi pi-chart-bar text-5xl text-gray-200 dark:text-gray-700 mb-4"></i>
             <p class="text-gray-400 dark:text-gray-500 font-medium">Load a schedule version to view reports.</p>
         </div>
 
-        <div v-else class="space-y-8 animate-in fade-in duration-500">
+        <div v-else class="flex-1 min-h-0 flex flex-col gap-6 animate-in fade-in duration-500 overflow-hidden">
             <!-- Summary Stats -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            <div class="shrink-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 <Card class="!shadow-sm !rounded-2xl border border-gray-100 dark:border-gray-800">
                     <template #content>
                         <div class="flex flex-col gap-1">
@@ -127,28 +127,38 @@ const stats = computed(() => {
                 </Card>
             </div>
 
-            <Tabs v-model:value="store.activeReportTab">
+            <div class="min-h-0 flex-1 overflow-hidden">
+            <Tabs v-model:value="store.activeReportTab" class="h-full min-h-0 flex flex-col">
                 <TabList>
                     <Tab value="0">Courses</Tab>
                     <Tab value="1">Teachers</Tab>
                     <Tab value="2">Classrooms</Tab>
                     <Tab value="3">Students</Tab>
                 </TabList>
-                <TabPanels>
-                    <TabPanel value="0">
-                        <CourseReport />
+                <TabPanels class="min-h-0 flex-1 overflow-hidden">
+                    <TabPanel value="0" class="h-full min-h-0 overflow-hidden !p-0">
+                        <div class="h-full min-h-0">
+                            <CourseReport />
+                        </div>
                     </TabPanel>
-                    <TabPanel value="1">
-                        <TeacherReport />
+                    <TabPanel value="1" class="h-full min-h-0 overflow-hidden !p-0">
+                        <div class="h-full min-h-0">
+                            <TeacherReport />
+                        </div>
                     </TabPanel>
-                    <TabPanel value="2">
-                        <RoomReport />
+                    <TabPanel value="2" class="h-full min-h-0 overflow-hidden !p-0">
+                        <div class="h-full min-h-0">
+                            <RoomReport />
+                        </div>
                     </TabPanel>
-                    <TabPanel value="3">
-                        <StudentReport />
+                    <TabPanel value="3" class="h-full min-h-0 overflow-hidden !p-0">
+                        <div class="h-full min-h-0">
+                            <StudentReport />
+                        </div>
                     </TabPanel>
                 </TabPanels>
             </Tabs>
+            </div>
         </div>
     </div>
 </template>

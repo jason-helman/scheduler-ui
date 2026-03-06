@@ -266,21 +266,21 @@ watch(selectedSection, (newSection, oldSection) => {
 </script>
 
 <template>
-    <div class="space-y-8">
-        <div class="flex items-center justify-between mb-2">
+    <div class="h-full min-h-0 flex flex-col gap-6">
+        <div class="flex items-center justify-between">
             <h2 class="text-3xl font-black tracking-tight text-gray-900 dark:text-white">Placement Diagnostics</h2>
             <div v-if="store.selectedVersion" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-xs font-bold text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
                 {{ store.selectedVersion.schedule_name }}
             </div>
         </div>
 
-        <div v-if="!store.localDataset" class="py-20 text-center bg-white dark:bg-gray-900 rounded-3xl border border-dashed border-gray-300 dark:border-gray-700">
+        <div v-if="!store.localDataset" class="flex-1 min-h-0 py-20 text-center bg-white dark:bg-gray-900 rounded-3xl border border-dashed border-gray-300 dark:border-gray-700">
             <i class="pi pi-search text-5xl text-gray-200 dark:text-gray-700 mb-4"></i>
             <p class="text-gray-400 dark:text-gray-500 font-medium">Load a schedule version to view diagnostics.</p>
         </div>
 
-        <div v-else class="animate-in fade-in duration-500">
-            <div v-if="store.diagnostics" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <div v-else class="flex-1 min-h-0 flex flex-col animate-in fade-in duration-500 overflow-hidden">
+            <div v-if="store.diagnostics" class="shrink-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                 <Card class="!shadow-sm !rounded-2xl border border-gray-100 dark:border-gray-800">
                     <template #content>
                         <div class="flex flex-col gap-1">
@@ -336,7 +336,8 @@ watch(selectedSection, (newSection, oldSection) => {
                 </Card>
             </div>
 
-            <Tabs v-model:value="activeDiagnosticsTab">
+            <div class="min-h-0 flex-1 overflow-hidden">
+            <Tabs v-model:value="activeDiagnosticsTab" class="h-full min-h-0 flex flex-col">
                 <TabList>
                     <Tab value="0">
                         Sections
@@ -351,15 +352,15 @@ watch(selectedSection, (newSection, oldSection) => {
                         <Badge class="ml-2" :value="validationIssueCount" :severity="validationIssueCount > 0 ? 'danger' : 'secondary'" />
                     </Tab>
                 </TabList>
-                <TabPanels>
-                    <TabPanel value="0">
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                            <div class="lg:col-span-1 card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
+                <TabPanels class="min-h-0 flex-1 overflow-hidden">
+                    <TabPanel value="0" class="h-full min-h-0 overflow-hidden !p-0">
+                        <div class="h-full min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            <div class="lg:col-span-1 card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col min-h-0">
                                 <div class="flex items-center justify-between mb-6 px-2">
                                     <h3 class="text-xl font-black">Sections</h3>
                                     <Badge :value="sectionRows.length" severity="secondary"></Badge>
                                 </div>
-                                <Tabs v-model:value="activeSectionListTab">
+                                <Tabs v-model:value="activeSectionListTab" class="h-full min-h-0 flex flex-col">
                                     <TabList>
                                         <Tab value="0">
                                             Unplaced
@@ -370,19 +371,17 @@ watch(selectedSection, (newSection, oldSection) => {
                                             <Badge class="ml-2" :value="placedSectionRows.length" severity="success" />
                                         </Tab>
                                     </TabList>
-                                    <TabPanels>
-                                        <TabPanel value="0">
+                                    <TabPanels class="min-h-0 flex-1 overflow-hidden">
+                                        <TabPanel value="0" class="h-full min-h-0 overflow-hidden !p-0">
                                             <DataTable 
                                                 v-model:selection="selectedSection" 
                                                 :value="unplacedSectionRows" 
                                                 selectionMode="single" 
                                                 stripedRows 
-                                                paginator 
-                                                :rows="15" 
                                                 class="p-datatable-sm"
                                                 dataKey="sectionId"
                                                 scrollable
-                                                scrollHeight="calc(100vh - 410px)"
+                                                scrollHeight="flex"
                                             >
                                                 <Column field="course_name" header="Course" sortable class="font-bold text-sm"></Column>
                                                 <Column field="teacher_name" header="Teacher" sortable class="text-xs"></Column>
@@ -398,18 +397,16 @@ watch(selectedSection, (newSection, oldSection) => {
                                                 </Column>
                                             </DataTable>
                                         </TabPanel>
-                                        <TabPanel value="1">
+                                        <TabPanel value="1" class="h-full min-h-0 overflow-hidden !p-0">
                                             <DataTable 
                                                 v-model:selection="selectedSection" 
                                                 :value="placedSectionRows" 
                                                 selectionMode="single" 
                                                 stripedRows 
-                                                paginator 
-                                                :rows="15" 
                                                 class="p-datatable-sm"
                                                 dataKey="sectionId"
                                                 scrollable
-                                                scrollHeight="calc(100vh - 410px)"
+                                                scrollHeight="flex"
                                             >
                                                 <Column field="course_name" header="Course" sortable class="font-bold text-sm"></Column>
                                                 <Column field="teacher_name" header="Teacher" sortable class="text-xs"></Column>
@@ -429,15 +426,15 @@ watch(selectedSection, (newSection, oldSection) => {
                                 </Tabs>
                             </div>
                             
-                            <div class="lg:col-span-2 card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
+                            <div class="lg:col-span-2 card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col min-h-0">
                                 <h3 class="text-xl font-black mb-6 px-2">Diagnostic Report</h3>
                                 
-                                <div v-if="!selectedSection" class="flex flex-col items-center justify-center py-40 text-gray-400">
+                                <div v-if="!selectedSection" class="flex-1 min-h-0 flex flex-col items-center justify-center py-10 text-gray-400">
                                     <i class="pi pi-search text-6xl mb-4 opacity-20"></i>
                                     <p class="font-medium text-lg">Select a section to investigate diagnostics and trace decisions.</p>
                                 </div>
                                 
-                                <div v-else class="space-y-6">
+                                <div v-else class="flex-1 min-h-0 flex flex-col gap-6">
                                     <div class="flex items-center justify-between p-6 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
                                         <div class="flex flex-col gap-1">
                                             <div class="flex items-center gap-3">
@@ -471,7 +468,7 @@ watch(selectedSection, (newSection, oldSection) => {
                                         <p class="text-emerald-600/70 dark:text-emerald-500/70 text-sm">No diagnostics were attached to this section.</p>
                                     </div>
 
-                                    <Tabs v-model:value="activeSectionDiagnosticTab">
+                                    <Tabs v-model:value="activeSectionDiagnosticTab" class="min-h-0 flex-1 flex flex-col">
                                         <TabList>
                                             <Tab value="0">
                                                 {{ actionableTabLabel }}
@@ -482,9 +479,9 @@ watch(selectedSection, (newSection, oldSection) => {
                                                 <Badge class="ml-2" :value="currentSectionDecisionDiagnostics.length" severity="info" />
                                             </Tab>
                                         </TabList>
-                                        <TabPanels>
-                                            <TabPanel value="0">
-                                                <div class="space-y-4 max-h-[520px] overflow-y-auto pr-2">
+                                        <TabPanels class="min-h-0 flex-1 overflow-hidden">
+                                            <TabPanel value="0" class="h-full min-h-0 overflow-hidden !p-0">
+                                                <div class="h-full min-h-0 space-y-4 overflow-y-auto pr-2">
                                                     <div class="flex items-center gap-2 px-2 text-red-500">
                                                         <i class="pi pi-exclamation-circle font-black"></i>
                                                         <span class="text-xs font-black uppercase tracking-widest">{{ actionableTabLabel }}</span>
@@ -516,8 +513,8 @@ watch(selectedSection, (newSection, oldSection) => {
                                                     </div>
                                                 </div>
                                             </TabPanel>
-                                            <TabPanel value="1">
-                                                <div class="space-y-4 max-h-[520px] overflow-y-auto pr-2">
+                                            <TabPanel value="1" class="h-full min-h-0 overflow-hidden !p-0">
+                                                <div class="h-full min-h-0 space-y-4 overflow-y-auto pr-2">
                                                     <div class="flex items-center gap-2 px-2 text-blue-500">
                                                         <i class="pi pi-chart-line font-black"></i>
                                                         <span class="text-xs font-black uppercase tracking-widest">Decision / Trace Diagnostics</span>
@@ -570,9 +567,9 @@ watch(selectedSection, (newSection, oldSection) => {
                         </div>
                     </TabPanel>
 
-                    <TabPanel value="1">
-                        <div class="space-y-6">
-                            <div class="card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
+                    <TabPanel value="1" class="h-full min-h-0 overflow-hidden !p-0">
+                        <div class="h-full min-h-0 space-y-6">
+                            <div class="card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col min-h-0">
                             <div class="flex items-center justify-between mb-6 px-2">
                                 <h3 class="text-xl font-black">System & Decision Diagnostics</h3>
                                 <Badge :value="systemAndDecisionDiagnostics.length" severity="info" />
@@ -580,11 +577,9 @@ watch(selectedSection, (newSection, oldSection) => {
                             <DataTable
                                 :value="systemAndDecisionDiagnostics"
                                 stripedRows
-                                paginator
-                                :rows="10"
                                 class="p-datatable-sm"
                                 scrollable
-                                scrollHeight="360px"
+                                scrollHeight="flex"
                             >
                                 <Column header="Scope" style="width: 9rem">
                                     <template #body="slotProps">
@@ -619,9 +614,9 @@ watch(selectedSection, (newSection, oldSection) => {
                         </div>
                     </TabPanel>
 
-                    <TabPanel value="2">
-                        <div class="space-y-6">
-                            <div class="card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
+                    <TabPanel value="2" class="h-full min-h-0 overflow-hidden !p-0">
+                        <div class="h-full min-h-0 space-y-6">
+                            <div class="card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col min-h-0">
                                 <div class="flex items-center justify-between mb-6 px-2">
                                     <h3 class="text-xl font-black">Validation Diagnostics</h3>
                                     <Badge :value="validationDiagnostics.length" :severity="validationIssueCount > 0 ? 'danger' : 'secondary'" />
@@ -633,11 +628,9 @@ watch(selectedSection, (newSection, oldSection) => {
                                     v-else
                                     :value="validationDiagnostics"
                                     stripedRows
-                                    paginator
-                                    :rows="12"
                                     class="p-datatable-sm"
                                     scrollable
-                                    scrollHeight="360px"
+                                    scrollHeight="flex"
                                 >
                                     <Column field="severity" header="Severity" sortable style="width: 8rem">
                                         <template #body="slotProps">
@@ -668,6 +661,7 @@ watch(selectedSection, (newSection, oldSection) => {
                     </TabPanel>
                 </TabPanels>
             </Tabs>
+            </div>
         </div>
     </div>
 </template>

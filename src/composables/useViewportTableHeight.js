@@ -1,6 +1,6 @@
 import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 
-export function useViewportTableHeight({ tableHostRef, isCompressed, watchSource }) {
+export function useViewportTableHeight({ tableHostRef, isCompressed, watchSource, bottomGap = 40 }) {
     const tableScrollHeight = ref('65vh')
     let tableHeightRafId = null
 
@@ -8,7 +8,6 @@ export function useViewportTableHeight({ tableHostRef, isCompressed, watchSource
         if (!tableHostRef.value) return
         const top = tableHostRef.value.getBoundingClientRect().top
         const viewportHeight = window.innerHeight
-        const bottomGap = 40
         const available = Math.floor(viewportHeight - top - bottomGap)
         const minHeight = isCompressed.value ? 260 : 320
         tableScrollHeight.value = `${Math.max(minHeight, available)}px`

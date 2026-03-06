@@ -31,9 +31,10 @@ const studentStats = computed(() => {
 </script>
 
 <template>
-    <div class="card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 mt-4">
+    <div class="card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 h-full min-h-0 flex flex-col">
         <h3 class="text-xl font-black mb-6 px-2">Student Demographics</h3>
-        <DataTable :value="studentStats" stripedRows class="p-datatable-sm">
+        <div class="min-h-0 flex-1">
+        <DataTable :value="studentStats" stripedRows class="p-datatable-sm" scrollable scrollHeight="flex">
             <Column field="grade" header="Grade Level" sortable class="font-bold"></Column>
             <Column field="total" header="Total Students" sortable></Column>
             <Column field="inclusion" header="Inclusion (IEP)" sortable>
@@ -43,7 +44,8 @@ const studentStats = computed(() => {
                 </template>
             </Column>
         </DataTable>
-        <div class="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
+        </div>
+        <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800 shrink-0">
             <div class="flex items-center gap-3">
                 <i class="pi pi-info-circle text-blue-500"></i>
                 <span class="text-sm font-medium text-blue-700 dark:text-blue-300">

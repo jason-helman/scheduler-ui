@@ -76,9 +76,10 @@ const courseStats = computed(() => {
 </script>
 
 <template>
-    <div class="card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 mt-4">
+    <div class="card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 h-full min-h-0 flex flex-col">
         <h3 class="text-xl font-black mb-6 px-2">Course Placement Status</h3>
-        <DataTable :value="courseStats" stripedRows paginator :rows="10" class="p-datatable-sm" sortField="name" :sortOrder="1">
+        <div class="min-h-0 flex-1">
+        <DataTable :value="courseStats" stripedRows class="p-datatable-sm" sortField="name" :sortOrder="1" scrollable scrollHeight="flex">
             <Column v-if="store.showIds" header="ID" style="width: 8%">
                 <template #body="slotProps">
                     <CopyButton :value="slotProps.data.courseId" label="Course ID" />
@@ -109,5 +110,6 @@ const courseStats = computed(() => {
                 </template>
             </Column>
         </DataTable>
+        </div>
     </div>
 </template>

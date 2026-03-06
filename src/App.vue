@@ -118,7 +118,7 @@ const navItems = [
     </aside>
 
     <!-- Main Content -->
-    <main class="flex-1 overflow-auto p-10">
+    <main class="flex-1 overflow-hidden p-10">
       <div v-if="store.currentView === 'MasterSchedule'" class="animate-in fade-in duration-500 h-full">
         <MasterSchedule />
       </div>
@@ -142,6 +142,14 @@ body {
 
 .my-app-dark {
     color-scheme: dark;
+}
+
+/* Keep PrimeVue tabs compact without changing tab list flow behavior. */
+.p-tab {
+    min-height: 1.8rem !important;
+    padding: 0.2rem 0.55rem !important;
+    font-size: 0.75rem !important;
+    line-height: 1.1 !important;
 }
 
 /* Custom scrollbar for sidebar */
