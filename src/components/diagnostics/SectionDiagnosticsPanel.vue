@@ -103,6 +103,21 @@ const activeSectionDiagnosticTabModel = computed({
     set: (value) => emit('update:activeSectionDiagnosticTab', value)
 })
 
+const sectionById = computed(() => {
+    const map = new Map()
+    ;(props.sectionRows || []).forEach((section) => map.set(String(section.sectionId), section))
+    return map
+})
+
+const isSubsectionTarget = (diagnostic) => {
+    if (!diagnostic || diagnostic.targetEntityId == null || !selectedSectionModel.value) return false
+    const target = sectionById.value.get(String(diagnostic.targetEntityId))
+    if (!target) return false
+    return String(target.parentSectionId ?? '') === String(selectedSectionModel.value.sectionId)
+}
+
+const targetLabel = (diagnostic) => (isSubsectionTarget(diagnostic) ? 'Caused by subsection' : 'Target')
+
 const sectionTableVirtualScrollerOptions = {
     itemSize: 38,
     numToleratedItems: 12,
@@ -368,9 +383,10 @@ watch(() => props.scrollRequestKey, (requestKey) => {
                                         Severity: {{ diag.severity }}
                                     </div>
                                     <div v-if="diag.targetEntityId != null" class="text-xs text-red-700/80 dark:text-red-400/80 space-y-0.5">
-                                        <div class="flex items-center gap-2">
-                                            <span class="font-bold">Target:</span>
-                                            <span>{{ resolveIdName(diag.targetEntityId) }}</span>
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <span class="font-bold">{{ targetLabel(diag) }}:</span>
+                                            <span>{{ resolveIdName(diag.targetEntityId, 'section') }}</span>
+                                            <Tag v-if="isSubsectionTarget(diag)" severity="warn" value="Cause" />
                                             <CopyButton
                                                 v-if="showIds"
                                                 :value="diag.targetEntityId"
