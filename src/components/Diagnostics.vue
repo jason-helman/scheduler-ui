@@ -12,6 +12,7 @@ import TabPanel from 'primevue/tabpanel'
 import DiagnosticsSummaryCards from './diagnostics/DiagnosticsSummaryCards.vue'
 import SectionDiagnosticsPanel from './diagnostics/SectionDiagnosticsPanel.vue'
 import SystemDecisionPanel from './diagnostics/SystemDecisionPanel.vue'
+import PerformanceTimingsPanel from './diagnostics/PerformanceTimingsPanel.vue'
 import PeriodOpportunityPanel from './diagnostics/PeriodOpportunityPanel.vue'
 import ValidationPanel from './diagnostics/ValidationPanel.vue'
 
@@ -33,6 +34,7 @@ const {
     validationIssueCount,
     hasAnyDiagnostics,
     systemMetrics,
+    performanceTimingRows,
     periodOpportunitySummary,
     periodOpportunityRows,
     teacherBreakSummary,
@@ -156,10 +158,14 @@ watch(selectedSection, (newSection, oldSection) => {
                             <Badge class="ml-2" :value="systemAndDecisionDiagnostics.length" severity="info" />
                         </Tab>
                         <Tab value="2">
+                            Performance Timings
+                            <Badge class="ml-2" :value="performanceTimingRows.length" severity="info" />
+                        </Tab>
+                        <Tab value="3">
                             Period Opportunity
                             <Badge class="ml-2" :value="periodOpportunityRows.length" severity="info" />
                         </Tab>
-                        <Tab value="3">
+                        <Tab value="4">
                             Validation
                             <Badge class="ml-2" :value="validationIssueCount" :severity="validationIssueCount > 0 ? 'danger' : 'secondary'" />
                         </Tab>
@@ -200,6 +206,12 @@ watch(selectedSection, (newSection, oldSection) => {
                         </TabPanel>
 
                         <TabPanel value="2" class="h-full min-h-0 overflow-hidden !p-0">
+                            <PerformanceTimingsPanel
+                                :rows="performanceTimingRows"
+                            />
+                        </TabPanel>
+
+                        <TabPanel value="3" class="h-full min-h-0 overflow-hidden !p-0">
                             <PeriodOpportunityPanel
                                 :rows="periodOpportunityRows"
                                 :summary="periodOpportunitySummary"
@@ -209,7 +221,7 @@ watch(selectedSection, (newSection, oldSection) => {
                             />
                         </TabPanel>
 
-                        <TabPanel value="3" class="h-full min-h-0 overflow-hidden !p-0">
+                        <TabPanel value="4" class="h-full min-h-0 overflow-hidden !p-0">
                             <ValidationPanel
                                 :validation-diagnostics="validationDiagnostics"
                                 :validation-issue-count="validationIssueCount"

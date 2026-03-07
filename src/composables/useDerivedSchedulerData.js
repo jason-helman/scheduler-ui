@@ -49,8 +49,12 @@ const normalizeDiagnostic = (diagnostic) => {
 
 const normalizeMetricKey = (key) => {
     const mapping = {
+        pre_populate_ms: 'prePopulateMs',
+        greedy_placement_ms: 'greedyPlacementMs',
         total_run_ms: 'totalRunMs',
         tabu_search_ms: 'tabuSearchMs',
+        classroom_assignment_ms: 'classroomAssignmentMs',
+        diagnostics_finalize_ms: 'diagnosticsFinalizeMs',
         global_score_before_tabu: 'globalScoreBeforeTabu',
         global_score_after_tabu: 'globalScoreAfterTabu',
         global_score_delta: 'globalScoreDelta',
@@ -61,6 +65,20 @@ const normalizeMetricKey = (key) => {
 }
 
 const isPlacedSection = (section) => Boolean(section?.coursePeriodIds && section.coursePeriodIds.length > 0)
+
+const TIMING_LABELS = {
+    prePopulateMs: 'Pre-populate Calendars',
+    greedyPlacementMs: 'Greedy Placement',
+    tabuSearchMs: 'Tabu Search',
+    classroomAssignmentMs: 'Classroom Assignment',
+    diagnosticsFinalizeMs: 'Diagnostics Finalization',
+    totalRunMs: 'Total Runtime'
+}
+
+const formatTimingLabel = (key) => {
+    if (TIMING_LABELS[key]) return TIMING_LABELS[key]
+    return String(key)
+}
 
 const buildIdReferenceIndex = (dataset) => {
     const refIndex = EMPTY_REFERENCE_INDEX()
@@ -440,6 +458,14 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
     })
 
     const metrics = {}
+    const timingOrder = [
+        'prePopulateMs',
+        'greedyPlacementMs',
+        'tabuSearchMs',
+        'classroomAssignmentMs',
+        'diagnosticsFinalizeMs',
+        'totalRunMs'
+    ]
     const periodOpportunityRows = []
     let periodOpportunitySummary = null
     const teacherBreakRows = []
@@ -448,9 +474,24 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
         const entityType = String(d.entityType || '').toLowerCase()
         const isSystemDiagnostic = entityType === 'system' || d.entityId === 0 || d.entityId === '0'
         if (!isSystemDiagnostic || !d.metrics) return
+        const isPerformanceSummary = d.code === 'DECISION_SUMMARY' && d.message === 'Section placement performance metrics.'
         Object.entries(d.metrics).forEach(([k, v]) => {
-            metrics[normalizeMetricKey(k)] = v
+            const normalizedKey = normalizeMetricKey(k)
+            if (normalizedKey === 'performanceMetrics' && v && typeof v === 'object' && !Array.isArray(v)) {
+                Object.entries(v).forEach(([nestedKey, nestedValue]) => {
+                    metrics[normalizeMetricKey(nestedKey)] = nestedValue
+                })
+                return
+            }
+
+            metrics[normalizedKey] = v
         })
+
+        if (isPerformanceSummary && d.metrics.performanceMetrics && typeof d.metrics.performanceMetrics === 'object') {
+            Object.entries(d.metrics.performanceMetrics).forEach(([k, v]) => {
+                metrics[normalizeMetricKey(k)] = v
+            })
+        }
 
         if (d.metrics.metricType === 'period_opportunity') {
             const periodId = d.conflictingIds?.[0] ?? d.metrics.periodId
@@ -490,6 +531,22 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
         }
     })
 
+    const performanceTimingRows = Object.entries(metrics)
+        .filter(([key, value]) => /ms$/i.test(String(key)) && value != null && !Number.isNaN(Number(value)))
+        .map(([key, value]) => ({
+            key,
+            label: formatTimingLabel(key),
+            milliseconds: Number(value)
+        }))
+        .sort((a, b) => {
+            const aIdx = timingOrder.indexOf(a.key)
+            const bIdx = timingOrder.indexOf(b.key)
+            const normalizedA = aIdx === -1 ? Number.MAX_SAFE_INTEGER : aIdx
+            const normalizedB = bIdx === -1 ? Number.MAX_SAFE_INTEGER : bIdx
+            if (normalizedA !== normalizedB) return normalizedA - normalizedB
+            return a.label.localeCompare(b.label)
+        })
+
     const scopeMap = new WeakMap()
     validation.forEach((d) => scopeMap.set(d, 'validation'))
     sectionPlacement.forEach((d) => scopeMap.set(d, 'sectionPlacement'))
@@ -514,6 +571,7 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
         validationIssueCount: validation.reduce((count, d) => count + (VALIDATION_ISSUE_SEVERITIES.has(d.severity) ? 1 : 0), 0),
         hasAnyDiagnostics: (validation.length > 0 || sectionPlacement.length > 0 || studentPlacement.length > 0),
         systemMetrics: metrics,
+        performanceTimingRows,
         periodOpportunitySummary,
         periodOpportunityRows: periodOpportunityRows.sort((a, b) => {
             const startDelta = String(a.startTime || '').localeCompare(String(b.startTime || ''))
@@ -578,6 +636,7 @@ export function useDerivedSchedulerData() {
         validationIssueCount: computed(() => diagnosticsDerived.value.validationIssueCount),
         hasAnyDiagnostics: computed(() => diagnosticsDerived.value.hasAnyDiagnostics),
         systemMetrics: computed(() => diagnosticsDerived.value.systemMetrics),
+        performanceTimingRows: computed(() => diagnosticsDerived.value.performanceTimingRows),
         periodOpportunitySummary: computed(() => diagnosticsDerived.value.periodOpportunitySummary),
         periodOpportunityRows: computed(() => diagnosticsDerived.value.periodOpportunityRows),
         teacherBreakSummary: computed(() => diagnosticsDerived.value.teacherBreakSummary),

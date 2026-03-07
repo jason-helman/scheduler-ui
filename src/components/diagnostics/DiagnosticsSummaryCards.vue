@@ -43,6 +43,23 @@ const formatPercent = (value) => {
     return `${prefix}${n.toFixed(2)}%`
 }
 
+const pad2 = (value) => String(value).padStart(2, '0')
+
+const formatDuration = (value) => {
+    if (value == null || Number.isNaN(Number(value))) return '-'
+
+    const totalMs = Math.max(0, Number(value))
+    const totalSeconds = totalMs / 1000
+    const hours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const seconds = totalSeconds % 60
+    const secondsWithMs = seconds.toFixed(3).padStart(6, '0')
+
+    if (hours > 0) return `${hours}:${pad2(minutes)}:${secondsWithMs}`
+    if (minutes > 0) return `${minutes}:${secondsWithMs}`
+    return `${seconds.toFixed(3)}s`
+}
+
 const getDeltaStatus = (delta) => {
     const epsilon = 1e-9
     if (delta == null || Number.isNaN(Number(delta)) || Math.abs(Number(delta)) <= epsilon) {
@@ -62,8 +79,7 @@ const getDeltaStatus = (delta) => {
                 <div class="flex flex-col gap-1">
                     <span class="text-xs font-black uppercase tracking-widest text-gray-400">Total Runtime</span>
                     <div class="flex items-end gap-2">
-                        <span class="text-4xl font-black text-blue-600 dark:text-blue-400">{{ systemMetrics.totalRunMs ?? '-' }}</span>
-                        <span class="text-xs font-bold text-gray-400 mb-1">ms</span>
+                        <span class="text-4xl font-black text-blue-600 dark:text-blue-400">{{ formatDuration(systemMetrics.totalRunMs) }}</span>
                     </div>
                 </div>
             </template>
@@ -73,8 +89,7 @@ const getDeltaStatus = (delta) => {
                 <div class="flex flex-col gap-1">
                     <span class="text-xs font-black uppercase tracking-widest text-gray-400">Tabu Search Time</span>
                     <div class="flex items-end gap-2">
-                        <span class="text-4xl font-black text-purple-600 dark:text-purple-400">{{ systemMetrics.tabuSearchMs ?? '-' }}</span>
-                        <span class="text-xs font-bold text-gray-400 mb-1">ms</span>
+                        <span class="text-4xl font-black text-purple-600 dark:text-purple-400">{{ formatDuration(systemMetrics.tabuSearchMs) }}</span>
                     </div>
                 </div>
             </template>
