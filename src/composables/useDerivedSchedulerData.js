@@ -66,20 +66,6 @@ const normalizeMetricKey = (key) => {
 
 const isPlacedSection = (section) => Boolean(section?.coursePeriodIds && section.coursePeriodIds.length > 0)
 
-const TIMING_LABELS = {
-    prePopulateMs: 'Pre-populate Calendars',
-    greedyPlacementMs: 'Greedy Placement',
-    tabuSearchMs: 'Tabu Search',
-    classroomAssignmentMs: 'Classroom Assignment',
-    diagnosticsFinalizeMs: 'Diagnostics Finalization',
-    totalRunMs: 'Total Runtime'
-}
-
-const formatTimingLabel = (key) => {
-    if (TIMING_LABELS[key]) return TIMING_LABELS[key]
-    return String(key)
-}
-
 const buildIdReferenceIndex = (dataset) => {
     const refIndex = EMPTY_REFERENCE_INDEX()
     const { index, typed } = refIndex
@@ -458,14 +444,8 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
     })
 
     const metrics = {}
-    const timingOrder = [
-        'prePopulateMs',
-        'greedyPlacementMs',
-        'tabuSearchMs',
-        'classroomAssignmentMs',
-        'diagnosticsFinalizeMs',
-        'totalRunMs'
-    ]
+    const timingOrder = ['prePopulateMs', 'greedyPlacementMs', 'tabuSearchMs', 'classroomAssignmentMs', 'diagnosticsFinalizeMs', 'totalRunMs']
+    const performanceTimingRows = []
     const periodOpportunityRows = []
     let periodOpportunitySummary = null
     const teacherBreakRows = []
@@ -528,17 +508,30 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
                 breakConcentrationIndex: Number(d.metrics.breakConcentrationIndex || 0),
                 periodCount: Number(d.metrics.periodCount || 0),
             }
+        } else if (d.metrics.metricType === 'performance_timing') {
+            performanceTimingRows.push({
+                key: String(d.metrics.key || '-'),
+                label: String(d.metrics.label || d.metrics.key || '-'),
+                milliseconds: Number(d.metrics.milliseconds || 0),
+                order: d.metrics.order == null ? Number.MAX_SAFE_INTEGER : Number(d.metrics.order),
+                shareOfTotal: d.metrics.shareOfTotal == null ? null : Number(d.metrics.shareOfTotal),
+            })
         }
     })
 
-    const performanceTimingRows = Object.entries(metrics)
-        .filter(([key, value]) => /ms$/i.test(String(key)) && value != null && !Number.isNaN(Number(value)))
-        .map(([key, value]) => ({
-            key,
-            label: formatTimingLabel(key),
-            milliseconds: Number(value)
-        }))
+    const derivedPerformanceTimingRows = (performanceTimingRows.length > 0
+        ? performanceTimingRows
+        : Object.entries(metrics)
+            .filter(([key, value]) => /ms$/i.test(String(key)) && value != null && !Number.isNaN(Number(value)))
+            .map(([key, value]) => ({
+                key,
+                label: String(key),
+                milliseconds: Number(value),
+                order: Number.MAX_SAFE_INTEGER,
+                shareOfTotal: null,
+            })))
         .sort((a, b) => {
+            if (a.order !== b.order) return a.order - b.order
             const aIdx = timingOrder.indexOf(a.key)
             const bIdx = timingOrder.indexOf(b.key)
             const normalizedA = aIdx === -1 ? Number.MAX_SAFE_INTEGER : aIdx
@@ -571,7 +564,7 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
         validationIssueCount: validation.reduce((count, d) => count + (VALIDATION_ISSUE_SEVERITIES.has(d.severity) ? 1 : 0), 0),
         hasAnyDiagnostics: (validation.length > 0 || sectionPlacement.length > 0 || studentPlacement.length > 0),
         systemMetrics: metrics,
-        performanceTimingRows,
+        performanceTimingRows: derivedPerformanceTimingRows,
         periodOpportunitySummary,
         periodOpportunityRows: periodOpportunityRows.sort((a, b) => {
             const startDelta = String(a.startTime || '').localeCompare(String(b.startTime || ''))

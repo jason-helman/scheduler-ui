@@ -48,8 +48,12 @@ const baselineTotalMs = computed(() => {
     return sum > 0 ? sum : 0
 })
 
-const formatRelativePercent = (milliseconds) => {
-    const value = Number(milliseconds)
+const formatRelativePercent = (row) => {
+    if (row && row.shareOfTotal != null && Number.isFinite(Number(row.shareOfTotal))) {
+        return `${(Number(row.shareOfTotal) * 100).toFixed(2)}%`
+    }
+
+    const value = Number(row?.milliseconds)
     if (!Number.isFinite(value) || baselineTotalMs.value <= 0) return '-'
     return `${((value / baselineTotalMs.value) * 100).toFixed(2)}%`
 }
@@ -92,7 +96,7 @@ const formatRelativePercent = (milliseconds) => {
                     </Column>
                     <Column header="% of Total" sortable style="width: 10rem">
                         <template #body="slotProps">
-                            {{ formatRelativePercent(slotProps.data.milliseconds) }}
+                            {{ formatRelativePercent(slotProps.data) }}
                         </template>
                     </Column>
                     <Column field="key" header="Key" style="width: 16rem">
