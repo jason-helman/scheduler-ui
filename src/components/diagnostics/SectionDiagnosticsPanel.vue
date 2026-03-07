@@ -413,6 +413,18 @@ watch(() => props.scrollRequestKey, (requestKey) => {
                                     <div class="text-xs text-blue-700/80 dark:text-blue-300/80 font-semibold">
                                         Severity: {{ diag.severity }}
                                     </div>
+                                    <div v-if="diag.targetEntityId != null" class="text-xs text-blue-700/80 dark:text-blue-300/80 space-y-0.5">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <span class="font-bold">{{ targetLabel(diag) }}:</span>
+                                            <span>{{ resolveIdName(diag.targetEntityId, 'section') }}</span>
+                                            <Tag v-if="isSubsectionTarget(diag)" severity="warn" value="Cause" />
+                                            <CopyButton
+                                                v-if="showIds"
+                                                :value="diag.targetEntityId"
+                                                label="Target ID"
+                                            />
+                                        </div>
+                                    </div>
                                     <div v-if="diag.metrics && Object.keys(diag.metrics).length > 0" class="text-xs text-blue-700/80 dark:text-blue-300/80">
                                         <div class="font-bold mb-1">Metrics</div>
                                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
