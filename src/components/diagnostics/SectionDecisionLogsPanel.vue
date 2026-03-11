@@ -105,6 +105,14 @@ const isInheritedDecisionView = computed(() =>
     ),
 )
 
+const EXECUTION_STEP_ORDER = {
+    run_start: 0,
+    candidate_selection: 1,
+    strategy_transition: 2,
+    strategy_finalization: 3,
+    run_complete: 4,
+}
+
 const compareDecisionRecords = (left, right) => {
     const leftTime = Number(left?.timestampMs)
     const rightTime = Number(right?.timestampMs)
@@ -116,7 +124,13 @@ const compareDecisionRecords = (left, right) => {
 
     const leftStep = String(left?.execution?.step || '')
     const rightStep = String(right?.execution?.step || '')
-    const stepDelta = leftStep.localeCompare(rightStep)
+    const leftStepOrder = Object.prototype.hasOwnProperty.call(EXECUTION_STEP_ORDER, leftStep)
+        ? EXECUTION_STEP_ORDER[leftStep]
+        : Number.MAX_SAFE_INTEGER
+    const rightStepOrder = Object.prototype.hasOwnProperty.call(EXECUTION_STEP_ORDER, rightStep)
+        ? EXECUTION_STEP_ORDER[rightStep]
+        : Number.MAX_SAFE_INTEGER
+    const stepDelta = leftStepOrder - rightStepOrder || leftStep.localeCompare(rightStep)
     if (stepDelta !== 0) return stepDelta
 
     return String(left?.code || '').localeCompare(String(right?.code || ''))
@@ -146,6 +160,7 @@ const primeSeverityForLevel = (level) => {
 const isTabuMoveSelected = (decision) => decision?.code === 'section.decision.strategy.tabu_move_selected'
 const isTabuMoveRejected = (decision) => decision?.code === 'section.decision.strategy.tabu_move_rejected'
 const isTabuFinalSummary = (decision) => decision?.code === 'section.decision.strategy.tabu_transition'
+const isGreedyFinalSelection = (decision) => decision?.code === 'section.decision.strategy.final_selected'
 
 const resolveAffectedSections = (decision) => {
     const contextIds = Array.isArray(decision?.context?.affectedSectionIds)
@@ -183,6 +198,31 @@ const formatPlacementPeriods = (periodIds) => {
     return periodIds.map((id) => props.resolveIdName(id, 'period')).join(', ')
 }
 
+const calculateRelativePercentage = (delta, baseline) => {
+    const numericDelta = Number(delta)
+    const numericBaseline = Number(baseline)
+
+    if (!Number.isFinite(numericDelta) || !Number.isFinite(numericBaseline)) return null
+    if (numericBaseline === 0) return null
+
+    const pct = (numericDelta / Math.abs(numericBaseline)) * 100
+    return Number.isFinite(pct) ? pct : null
+}
+
+const formatPercentage = (value) => {
+    const numeric = Number(value)
+    if (!Number.isFinite(numeric)) return null
+    return `${numeric >= 0 ? '+' : ''}${numeric.toFixed(1)}%`
+}
+
+const formatScoreValue = (value) => {
+    const numeric = Number(value)
+    if (!Number.isFinite(numeric)) return String(value ?? '-')
+    return numeric.toLocaleString(undefined, {
+        maximumFractionDigits: 2,
+    })
+}
+
 const formatPlacementChanges = (decision) => {
     const formatted = new Map()
 
@@ -204,6 +244,93 @@ const formatPlacementChanges = (decision) => {
 
     return Array.from(formatted.values())
 }
+
+const greedyFinalSelection = computed(() =>
+    [...props.currentSectionDecisionLogs]
+        .filter((decision) => isGreedyFinalSelection(decision))
+        .sort(compareDecisionRecords)
+        .at(-1) || null
+)
+
+const greedyTargetPeriods = (decision) => {
+    const targetRefs = Array.isArray(decision?.related)
+        ? decision.related.filter((ref) => String(ref?.entityType || '').toLowerCase() === 'course_period')
+        : []
+
+    return targetRefs.map((ref) => props.resolveIdName(ref.entityId, 'period'))
+}
+
+const greedyOverview = computed(() => {
+    if (!greedyFinalSelection.value) return null
+
+    const periods = greedyTargetPeriods(greedyFinalSelection.value)
+    const metrics = greedyFinalSelection.value.metrics || {}
+    const scoreGap = metrics.scoreGap ?? null
+    const secondBestScore = metrics.secondBestScore ?? null
+
+    return {
+        periods,
+        selectedScore: metrics.selectedScore ?? metrics.greedyScore ?? '-',
+        secondBestScore,
+        scoreGap,
+        scoreGapPct: calculateRelativePercentage(scoreGap, secondBestScore),
+        validCandidateCount: metrics.validCandidateCount ?? null,
+    }
+})
+
+const tabuSelectedMoves = computed(() =>
+    [...props.currentSectionDecisionLogs]
+        .filter((decision) => isTabuMoveSelected(decision))
+        .sort(compareDecisionRecords)
+)
+
+const tabuFinalSummary = computed(() =>
+    [...props.currentSectionDecisionLogs]
+        .filter((decision) => isTabuFinalSummary(decision))
+        .sort(compareDecisionRecords)
+        .at(-1) || null
+)
+
+const tabuTimeline = computed(() => tabuSelectedMoves.value.map((decision, index) => {
+    const placementChanges = formatPlacementChanges(decision)
+    const scoreDelta = Number(decision?.metrics?.scoreDelta ?? 0)
+    const bestScoreAfter = decision?.metrics?.bestScoreAfter ?? '-'
+    const currentScoreAfter = decision?.metrics?.currentScoreAfter ?? '-'
+    const currentScoreBefore = decision?.metrics?.currentScoreBefore ?? '-'
+    const improvedBest = decision?.context?.improvedBestScore === true
+    const usedAspiration = decision?.context?.usedAspiration === true
+
+    return {
+        id: `${decision?.decisionId || 'tabu'}-${decision?.execution?.iteration || index}`,
+        iteration: decision?.execution?.iteration ?? index + 1,
+        placementChanges,
+        scoreDelta,
+        currentScoreBefore,
+        bestScoreAfter,
+        currentScoreAfter,
+        bestDiffersFromCurrent: String(bestScoreAfter) !== String(currentScoreAfter),
+        improvedBest,
+        usedAspiration,
+    }
+}))
+
+const tabuOverview = computed(() => {
+    if (tabuTimeline.value.length === 0 && !tabuFinalSummary.value) return null
+
+    const finalMetrics = tabuFinalSummary.value?.metrics || {}
+    const initialScore = finalMetrics.initialScore ?? '-'
+    const bestScore = finalMetrics.bestScore ?? '-'
+    const scoreDelta = finalMetrics.scoreDelta ?? '-'
+    return {
+        moveCount: tabuTimeline.value.length,
+        bestImprovementCount: tabuTimeline.value.filter((entry) => entry.improvedBest).length,
+        aspirationCount: tabuTimeline.value.filter((entry) => entry.usedAspiration).length,
+        initialScore,
+        bestScore,
+        scoreDelta,
+        changedSections: finalMetrics.changedSections ?? '-',
+    }
+})
 
 const describeDecision = (decision) => {
     if (isTabuMoveSelected(decision)) {
@@ -608,6 +735,153 @@ watch(decisionChains, (chains) => {
                 </div>
 
                 <div v-else class="h-full min-h-0 space-y-4 overflow-y-auto pr-2">
+                    <div
+                        v-if="greedyOverview"
+                        class="rounded-2xl border border-emerald-100 dark:border-emerald-900/30 bg-gradient-to-br from-emerald-50 via-white to-sky-50 dark:from-emerald-950/20 dark:via-gray-900 dark:to-sky-950/10 p-5"
+                    >
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <div class="text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-300">
+                                    Initial Greedy Placement
+                                </div>
+                                <div class="mt-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
+                                    {{ selectedSectionModel.course_name }}: {{ greedyOverview.periods.length > 0 ? greedyOverview.periods.join(', ') : 'Unplaced' }}
+                                </div>
+                                <div class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                                    This is the placement chosen before tabu search started making accepted moves.
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-xs font-semibold">
+                                <div class="rounded-xl bg-white/80 dark:bg-gray-950/30 px-3 py-2 border border-emerald-100 dark:border-emerald-900/30">
+                                    Score: {{ greedyOverview.selectedScore }}
+                                </div>
+                                <div
+                                    class="rounded-xl bg-white/80 dark:bg-gray-950/30 px-3 py-2 border border-emerald-100 dark:border-emerald-900/30"
+                                >
+                                    Valid candidates: {{ greedyOverview.validCandidateCount ?? '-' }}
+                                </div>
+                                <div
+                                    v-if="greedyOverview.scoreGap != null"
+                                    class="rounded-xl bg-white/80 dark:bg-gray-950/30 px-3 py-2 border border-emerald-100 dark:border-emerald-900/30"
+                                >
+                                    Score gap: {{ greedyOverview.scoreGap }}
+                                </div>
+                                <div
+                                    v-if="greedyOverview.scoreGapPct != null"
+                                    class="rounded-xl bg-white/80 dark:bg-gray-950/30 px-3 py-2 border border-emerald-100 dark:border-emerald-900/30"
+                                >
+                                    Above runner-up: {{ formatPercentage(greedyOverview.scoreGapPct) }}
+                                </div>
+                                <div
+                                    v-if="greedyOverview.secondBestScore != null"
+                                    class="rounded-xl bg-white/80 dark:bg-gray-950/30 px-3 py-2 border border-emerald-100 dark:border-emerald-900/30"
+                                >
+                                    Runner-up: {{ greedyOverview.secondBestScore }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        v-if="tabuOverview"
+                        class="rounded-2xl border border-fuchsia-100 dark:border-fuchsia-900/30 bg-gradient-to-br from-fuchsia-50 via-white to-amber-50 dark:from-fuchsia-950/20 dark:via-gray-900 dark:to-amber-950/10 p-5"
+                    >
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <div class="text-xs font-black uppercase tracking-widest text-fuchsia-600 dark:text-fuchsia-300">
+                                    Tabu Run Summary
+                                </div>
+                                <div class="mt-2 text-lg font-black text-gray-900 dark:text-white">
+                                    {{ tabuOverview.moveCount }} accepted move{{ tabuOverview.moveCount === 1 ? '' : 's' }}
+                                </div>
+                                <div class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                                    Run score {{ formatScoreValue(tabuOverview.initialScore) }} -> {{ formatScoreValue(tabuOverview.bestScore) }}
+                                </div>
+                                <div class="mt-1 text-sm font-semibold text-fuchsia-700 dark:text-fuchsia-300">
+                                    Net run {{ Number(tabuOverview.scoreDelta) >= 0 ? 'improvement' : 'reduction' }} of {{ formatScoreValue(tabuOverview.scoreDelta) }}
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-xs font-semibold">
+                                <div class="rounded-xl bg-white/80 dark:bg-gray-950/30 px-3 py-2 border border-fuchsia-100 dark:border-fuchsia-900/30">
+                                    Improved best: {{ tabuOverview.bestImprovementCount }}
+                                </div>
+                                <div class="rounded-xl bg-white/80 dark:bg-gray-950/30 px-3 py-2 border border-fuchsia-100 dark:border-fuchsia-900/30">
+                                    Aspiration: {{ tabuOverview.aspirationCount }}
+                                </div>
+                                <div class="rounded-xl bg-white/80 dark:bg-gray-950/30 px-3 py-2 border border-fuchsia-100 dark:border-fuchsia-900/30 col-span-2">
+                                    Changed sections: {{ tabuOverview.changedSections }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="tabuTimeline.length > 0" class="mt-5 space-y-3">
+                            <div class="flex items-center gap-2 text-fuchsia-600 dark:text-fuchsia-300">
+                                <i class="pi pi-share-alt text-xs"></i>
+                                <span class="text-xs font-black uppercase tracking-widest">Accepted Move Timeline</span>
+                            </div>
+                            <div class="space-y-3">
+                                <div
+                                    v-for="entry in tabuTimeline"
+                                    :key="entry.id"
+                                    class="relative overflow-hidden rounded-2xl border border-fuchsia-100 dark:border-fuchsia-900/30 bg-white/80 dark:bg-gray-950/20 px-4 py-4"
+                                >
+                                    <div class="absolute inset-y-0 left-0 w-1 bg-fuchsia-400/70"></div>
+                                    <div class="pl-3">
+                                        <div class="flex items-start justify-between gap-4">
+                                            <div>
+                                                <div class="flex items-center gap-2 flex-wrap">
+                                                    <span class="rounded-full bg-fuchsia-100 dark:bg-fuchsia-900/30 px-2.5 py-1 text-[11px] font-black uppercase tracking-widest text-fuchsia-700 dark:text-fuchsia-300">
+                                                        Iteration {{ entry.iteration }}
+                                                    </span>
+                                                    <span
+                                                        v-if="entry.improvedBest"
+                                                        class="rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2.5 py-1 text-[11px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300"
+                                                    >
+                                                        Improved Best
+                                                    </span>
+                                                    <span
+                                                        v-if="entry.usedAspiration"
+                                                        class="rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-1 text-[11px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300"
+                                                    >
+                                                        Aspiration
+                                                    </span>
+                                                </div>
+                                                <div class="mt-3 space-y-1 text-sm font-semibold text-gray-800 dark:text-gray-100">
+                                                    <div
+                                                        v-for="(change, changeIdx) in entry.placementChanges"
+                                                        :key="`${entry.id}-change-${changeIdx}`"
+                                                    >
+                                                        {{ change }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                                <div class="shrink-0 text-right">
+                                                <div class="text-lg font-black text-fuchsia-700 dark:text-fuchsia-300">
+                                                    {{ entry.scoreDelta >= 0 ? 'Move Impact' : 'Move Impact' }}
+                                                </div>
+                                                <div class="mt-1 text-xl font-black text-gray-900 dark:text-white">
+                                                    {{ entry.scoreDelta >= 0 ? '+' : '' }}{{ formatScoreValue(entry.scoreDelta) }}
+                                                </div>
+                                                <div class="mt-1 text-[11px] font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                                                    move delta
+                                                </div>
+                                                <div class="mt-3 text-xs text-gray-600 dark:text-gray-300">
+                                                    Score after move: {{ formatScoreValue(entry.currentScoreBefore) }} -> {{ formatScoreValue(entry.currentScoreAfter) }}
+                                                </div>
+                                                <div
+                                                    v-if="entry.bestDiffersFromCurrent"
+                                                    class="text-xs text-gray-600 dark:text-gray-300"
+                                                >
+                                                    Run best remains: {{ formatScoreValue(entry.bestScoreAfter) }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="flex items-center gap-2 px-2 text-blue-500">
                         <i class="pi pi-sitemap font-black"></i>
                         <span class="text-xs font-black uppercase tracking-widest">Decision Chains</span>
