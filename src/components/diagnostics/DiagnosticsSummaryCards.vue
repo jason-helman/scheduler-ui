@@ -31,11 +31,8 @@ const resolveFinalGlobalScore = (metrics) => {
     if (metrics?.finalGlobalScore != null && !Number.isNaN(Number(metrics.finalGlobalScore))) {
         return Number(metrics.finalGlobalScore)
     }
-    if (metrics?.globalScoreAfterTabu != null && !Number.isNaN(Number(metrics.globalScoreAfterTabu))) {
-        return Number(metrics.globalScoreAfterTabu)
-    }
-    if (metrics?.globalScoreBeforeTabu != null && !Number.isNaN(Number(metrics.globalScoreBeforeTabu))) {
-        return Number(metrics.globalScoreBeforeTabu)
+    if (metrics?.initialGlobalScore != null && !Number.isNaN(Number(metrics.initialGlobalScore))) {
+        return Number(metrics.initialGlobalScore)
     }
     return null
 }
