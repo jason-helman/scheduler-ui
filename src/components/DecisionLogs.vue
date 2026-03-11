@@ -30,9 +30,16 @@ const {
     getDecisionScope,
 } = useDerivedSchedulerData()
 
+const effectiveDecisionSection = computed(() => {
+    if (!selectedSection.value) return null
+    if (selectedSection.value.parentSectionId == null) return selectedSection.value
+
+    return sectionRows.value.find((section) => idsEqual(section.sectionId, selectedSection.value.parentSectionId)) || selectedSection.value
+})
+
 const currentSectionDecisionLogs = computed(() => {
-    if (!selectedSection.value || !store.localDataset?.observability) return []
-    return sectionDecisionIndex.value.bySectionId.get(String(selectedSection.value.sectionId)) || []
+    if (!effectiveDecisionSection.value || !store.localDataset?.observability) return []
+    return sectionDecisionIndex.value.bySectionId.get(String(effectiveDecisionSection.value.sectionId)) || []
 })
 
 const parentDecisionCount = computed(() => {
@@ -122,6 +129,7 @@ watch(selectedSection, (newSection) => {
                                 :placed-section-rows="placedSectionRows"
                                 :invalid-section-rows="invalidSectionRows"
                                 :selected-section="selectedSection"
+                                :decision-log-owner="effectiveDecisionSection"
                                 :has-decision-logs="Boolean(store.localDataset?.observability)"
                                 :current-section-decision-logs="currentSectionDecisionLogs"
                                 :parent-decision-count="parentDecisionCount"

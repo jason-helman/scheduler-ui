@@ -32,6 +32,10 @@ const props = defineProps({
         type: Object,
         default: null
     },
+    decisionLogOwner: {
+        type: Object,
+        default: null
+    },
     hasDecisionLogs: {
         type: Boolean,
         default: false
@@ -92,6 +96,14 @@ const parentSection = computed(() => {
     if (parentId == null) return null
     return sectionById.value.get(String(parentId)) || null
 })
+
+const isInheritedDecisionView = computed(() =>
+    Boolean(
+        selectedSectionModel.value?.parentSectionId != null &&
+        props.decisionLogOwner &&
+        String(props.decisionLogOwner.sectionId) !== String(selectedSectionModel.value.sectionId),
+    ),
+)
 
 const compareDecisionRecords = (left, right) => {
     const leftTime = Number(left?.timestampMs)
@@ -156,6 +168,43 @@ const formatAffectedSections = (decision) => {
     return labels.length > 0 ? labels.join(', ') : '-'
 }
 
+const resolvePlacementChanges = (decision) => Array.isArray(decision?.context?.placementChanges)
+    ? decision.context.placementChanges
+    : []
+
+const resolveCanonicalSectionId = (sectionId) => {
+    const section = sectionById.value.get(String(sectionId))
+    if (!section?.parentSectionId) return sectionId
+    return section.parentSectionId
+}
+
+const formatPlacementPeriods = (periodIds) => {
+    if (!Array.isArray(periodIds) || periodIds.length === 0) return 'Unplaced'
+    return periodIds.map((id) => props.resolveIdName(id, 'period')).join(', ')
+}
+
+const formatPlacementChanges = (decision) => {
+    const formatted = new Map()
+
+    resolvePlacementChanges(decision).forEach((change) => {
+        const canonicalSectionId = resolveCanonicalSectionId(change?.sectionId)
+        const fromLabel = formatPlacementPeriods(change?.fromCoursePeriodIds)
+        const toLabel = formatPlacementPeriods(change?.toCoursePeriodIds)
+        const dedupeKey = [
+            String(canonicalSectionId ?? ''),
+            JSON.stringify(change?.fromCoursePeriodIds || []),
+            JSON.stringify(change?.toCoursePeriodIds || []),
+        ].join('|')
+
+        if (formatted.has(dedupeKey)) return
+
+        const sectionLabel = props.resolveIdName(canonicalSectionId, 'section')
+        formatted.set(dedupeKey, `${sectionLabel}: ${fromLabel} -> ${toLabel}`)
+    })
+
+    return Array.from(formatted.values())
+}
+
 const describeDecision = (decision) => {
     if (isTabuMoveSelected(decision)) {
         const move = decision?.context?.move || '-'
@@ -163,9 +212,10 @@ const describeDecision = (decision) => {
         const bestAfter = decision?.metrics?.bestScoreAfter ?? '-'
         const usedAspiration = decision?.context?.usedAspiration === true
         const improvedBest = decision?.context?.improvedBestScore === true
+        const placementSummary = formatPlacementChanges(decision)
 
         return {
-            title: `Selected tabu move: ${move}`,
+            title: placementSummary.length > 0 ? `Selected tabu move: ${placementSummary.join('; ')}` : `Selected tabu move: ${move}`,
             summary: `${improvedBest ? 'Improved' : 'Changed'} score by ${scoreDelta}. Best score now ${bestAfter}.${usedAspiration ? ' Allowed via aspiration.' : ''}`,
         }
     }
@@ -173,8 +223,9 @@ const describeDecision = (decision) => {
     if (isTabuMoveRejected(decision)) {
         const move = decision?.context?.move || '-'
         const candidateScore = decision?.metrics?.candidateScore ?? '-'
+        const placementSummary = formatPlacementChanges(decision)
         return {
-            title: `Rejected tabu move: ${move}`,
+            title: placementSummary.length > 0 ? `Rejected tabu move: ${placementSummary.join('; ')}` : `Rejected tabu move: ${move}`,
             summary: `Skipped because the move was tabu and candidate score ${candidateScore} did not beat the current global best.`,
         }
     }
@@ -516,11 +567,22 @@ watch(decisionChains, (chains) => {
                             This subsection belongs to {{ parentSection.course_name || resolveIdName(parentSection.sectionId, 'section') }}.
                         </div>
                         <div class="mt-1 text-xs text-sky-700/80 dark:text-sky-200/80">
-                            Parent section decision chains may contain the main placement narrative.
+                            <span v-if="isInheritedDecisionView">
+                                Showing the parent section's decision chain because subsection placement inherits the parent narrative.
+                            </span>
+                            <span v-else>
+                                Parent section decision chains may contain the main placement narrative.
+                            </span>
                         </div>
                         <div class="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-sky-700 dark:text-sky-200">
                             <span class="rounded-full bg-sky-100 dark:bg-sky-900/40 px-2.5 py-1">
                                 Parent decisions: {{ parentDecisionCount }}
+                            </span>
+                            <span
+                                v-if="isInheritedDecisionView && decisionLogOwner"
+                                class="rounded-full bg-sky-100 dark:bg-sky-900/40 px-2.5 py-1"
+                            >
+                                Viewing records from: {{ decisionLogOwner.course_name || resolveIdName(decisionLogOwner.sectionId, 'section') }}
                             </span>
                         </div>
                     </div>
@@ -625,6 +687,20 @@ watch(decisionChains, (chains) => {
                                 >
                                     <div class="font-bold mb-1">Affected Sections</div>
                                     <div>{{ formatAffectedSections(decision) }}</div>
+                                </div>
+                                <div
+                                    v-if="formatPlacementChanges(decision).length > 0"
+                                    class="mt-3 text-xs text-blue-700/80 dark:text-blue-300/80"
+                                >
+                                    <div class="font-bold mb-1">Placement Changes</div>
+                                    <div class="space-y-1">
+                                        <div
+                                            v-for="(change, changeIdx) in formatPlacementChanges(decision)"
+                                            :key="`${chain.decisionId}-${idx}-change-${changeIdx}`"
+                                        >
+                                            {{ change }}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div v-if="decision.metrics && Object.keys(decision.metrics).length > 0" class="mt-3 text-xs text-blue-700/80 dark:text-blue-300/80">
                                     <div class="font-bold mb-1">Metrics</div>
