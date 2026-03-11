@@ -77,6 +77,68 @@ const activeSectionListTabModel = computed({
     set: (value) => emit('update:activeSectionListTab', value)
 })
 
+const compareDecisionRecords = (left, right) => {
+    const leftTime = Number(left?.timestampMs)
+    const rightTime = Number(right?.timestampMs)
+    const leftHasTime = Number.isFinite(leftTime)
+    const rightHasTime = Number.isFinite(rightTime)
+
+    if (leftHasTime && rightHasTime && leftTime !== rightTime) return leftTime - rightTime
+    if (leftHasTime !== rightHasTime) return leftHasTime ? -1 : 1
+
+    const leftStep = String(left?.execution?.step || '')
+    const rightStep = String(right?.execution?.step || '')
+    const stepDelta = leftStep.localeCompare(rightStep)
+    if (stepDelta !== 0) return stepDelta
+
+    return String(left?.code || '').localeCompare(String(right?.code || ''))
+}
+
+const decisionChains = computed(() => {
+    const chainsById = new Map()
+
+    props.currentSectionDecisionLogs.forEach((decision) => {
+        const decisionId = String(decision?.decisionId || 'unscoped-chain')
+        const existing = chainsById.get(decisionId)
+
+        if (existing) {
+            existing.records.push(decision)
+            return
+        }
+
+        chainsById.set(decisionId, {
+            decisionId,
+            records: [decision]
+        })
+    })
+
+    return Array.from(chainsById.values())
+        .map((chain) => {
+            const records = [...chain.records].sort(compareDecisionRecords)
+            const firstRecord = records[0] || null
+            const lastRecord = records[records.length - 1] || null
+            const adoptedFromDecisionIds = Array.from(
+                new Set(
+                    records.flatMap((record) => Array.isArray(record?.adoption?.adoptedFromDecisionIds)
+                        ? record.adoption.adoptedFromDecisionIds
+                        : [])
+                )
+            )
+
+            return {
+                decisionId: chain.decisionId,
+                records,
+                firstRecord,
+                lastRecord,
+                strategyType: firstRecord?.execution?.strategyType || lastRecord?.execution?.strategyType || null,
+                category: lastRecord?.category || firstRecord?.category || null,
+                retention: lastRecord?.retention || firstRecord?.retention || null,
+                adoptedFromDecisionIds
+            }
+        })
+        .sort((left, right) => compareDecisionRecords(left.firstRecord, right.firstRecord))
+})
+
 const sectionTableVirtualScrollerOptions = {
     itemSize: 38,
     numToleratedItems: 12,
@@ -87,8 +149,18 @@ const sectionTableVirtualScrollerOptions = {
 const unplacedTableRef = ref(null)
 const placedTableRef = ref(null)
 const invalidTableRef = ref(null)
+const collapsedDecisionChains = ref({})
 
 const rowClass = (data) => 'decision-section-row decision-section-row--' + String(data.sectionId)
+
+const isChainCollapsed = (decisionId) => Boolean(collapsedDecisionChains.value[decisionId])
+
+const toggleChainCollapsed = (decisionId) => {
+    collapsedDecisionChains.value = {
+        ...collapsedDecisionChains.value,
+        [decisionId]: !collapsedDecisionChains.value[decisionId]
+    }
+}
 
 const scrollToTargetSection = async () => {
     if (props.scrollToSectionId == null) return
@@ -147,6 +219,14 @@ watch(() => props.scrollRequestKey, (requestKey) => {
     setTimeout(() => scrollToTargetSection(), 80)
     setTimeout(() => scrollToTargetSection(), 220)
 }, { immediate: true, flush: 'post' })
+
+watch(decisionChains, (chains) => {
+    const nextCollapsed = {}
+    chains.forEach((chain) => {
+        nextCollapsed[chain.decisionId] = collapsedDecisionChains.value[chain.decisionId] ?? false
+    })
+    collapsedDecisionChains.value = nextCollapsed
+}, { immediate: true })
 </script>
 
 <template>
@@ -304,52 +384,102 @@ watch(() => props.scrollRequestKey, (requestKey) => {
                 <div v-else class="h-full min-h-0 space-y-4 overflow-y-auto pr-2">
                     <div class="flex items-center gap-2 px-2 text-blue-500">
                         <i class="pi pi-sitemap font-black"></i>
-                        <span class="text-xs font-black uppercase tracking-widest">Decision Records</span>
+                        <span class="text-xs font-black uppercase tracking-widest">Decision Chains</span>
                     </div>
                     <div
-                        v-for="(decision, idx) in currentSectionDecisionLogs"
-                        :key="`decision-${idx}`"
-                        class="space-y-2 p-5 rounded-2xl border border-blue-100 dark:border-blue-900/30 bg-blue-50/50 dark:bg-blue-900/5 items-start transition-all hover:border-blue-200 dark:hover:border-blue-800"
+                        v-for="(chain, chainIdx) in decisionChains"
+                        :key="chain.decisionId"
+                        class="space-y-4 p-5 rounded-2xl border border-blue-100 dark:border-blue-900/30 bg-blue-50/50 dark:bg-blue-900/5 items-start transition-all hover:border-blue-200 dark:hover:border-blue-800"
                     >
                         <div class="flex items-start justify-between gap-4">
                             <div>
                                 <div class="text-sm font-bold text-blue-700 dark:text-blue-300 leading-relaxed">
-                                    {{ decision.code }}: {{ decision.message }}
+                                    Chain {{ chainIdx + 1 }}
                                 </div>
                                 <div class="mt-1 text-xs text-blue-700/80 dark:text-blue-300/80 font-semibold">
-                                    Level: {{ decision.severity }}
-                                    <span v-if="decision.category"> | Category: {{ decision.category }}</span>
-                                    <span v-if="decision.retention"> | Retention: {{ decision.retention }}</span>
+                                    <span v-if="chain.strategyType">Strategy: {{ chain.strategyType }}</span>
+                                    <span v-else>Strategy: -</span>
+                                    <span v-if="chain.category"> | Category: {{ chain.category }}</span>
+                                    <span v-if="chain.retention"> | Retention: {{ chain.retention }}</span>
+                                    <span> | Records: {{ chain.records.length }}</span>
+                                </div>
+                                <div class="mt-1 text-xs text-blue-700/80 dark:text-blue-300/80 font-semibold">
+                                    Decision ID: {{ chain.decisionId }}
                                 </div>
                             </div>
-                            <Tag :value="decision.severity" severity="info" />
-                        </div>
-                        <div v-if="decision.metrics && Object.keys(decision.metrics).length > 0" class="text-xs text-blue-700/80 dark:text-blue-300/80">
-                            <div class="font-bold mb-1">Metrics</div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                                <div v-for="([key, value], metricIdx) in Object.entries(decision.metrics)" :key="`${idx}-${metricIdx}`">
-                                    {{ key }}: {{ value }}
-                                </div>
-                            </div>
-                        </div>
-                        <div v-if="decision.conflictingIds?.length" class="text-xs text-blue-700/80 dark:text-blue-300/80">
-                            <div class="font-bold mb-1">References</div>
-                            <div class="space-y-2">
-                                <div
-                                    v-for="(refId, refIdx) in decision.conflictingIds"
-                                    :key="`${idx}-ref-${refIdx}`"
-                                    class="rounded border border-blue-200/60 dark:border-blue-800/50 px-2 py-1"
+                            <div class="flex items-center gap-3">
+                                <Tag :value="chain.lastRecord?.severity || 'info'" severity="info" />
+                                <button
+                                    type="button"
+                                    class="inline-flex items-center gap-2 rounded-full border border-blue-200 dark:border-blue-800 px-3 py-1 text-xs font-black uppercase tracking-widest text-blue-700 dark:text-blue-300 transition-colors hover:bg-blue-100/70 dark:hover:bg-blue-900/30"
+                                    @click="toggleChainCollapsed(chain.decisionId)"
                                 >
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        <span>{{ resolveIdName(refId) }}</span>
-                                        <CopyButton
-                                            v-if="showIds"
-                                            :value="refId"
-                                            label="Reference ID"
-                                        />
+                                    <i :class="['pi text-[10px]', isChainCollapsed(chain.decisionId) ? 'pi-chevron-down' : 'pi-chevron-up']"></i>
+                                    {{ isChainCollapsed(chain.decisionId) ? 'Expand' : 'Collapse' }}
+                                </button>
+                            </div>
+                        </div>
+                        <div v-if="chain.adoptedFromDecisionIds.length > 0" class="text-xs text-blue-700/80 dark:text-blue-300/80">
+                            <div class="font-bold mb-1">Adopted From</div>
+                            <div class="flex flex-wrap gap-2">
+                                <Tag
+                                    v-for="adoptedId in chain.adoptedFromDecisionIds"
+                                    :key="adoptedId"
+                                    :value="adoptedId"
+                                    severity="secondary"
+                                />
+                            </div>
+                        </div>
+                        <div v-if="!isChainCollapsed(chain.decisionId)" class="space-y-3">
+                            <div
+                                v-for="(decision, idx) in chain.records"
+                                :key="`${chain.decisionId}-${idx}`"
+                                class="rounded-xl border border-blue-200/60 dark:border-blue-800/50 bg-white/60 dark:bg-gray-950/20 px-4 py-4"
+                            >
+                                <div class="flex items-start justify-between gap-4">
+                                    <div>
+                                        <div class="text-sm font-bold text-blue-700 dark:text-blue-300 leading-relaxed">
+                                            {{ decision.code }}: {{ decision.message }}
+                                        </div>
+                                        <div class="mt-1 text-xs text-blue-700/80 dark:text-blue-300/80 font-semibold">
+                                            Level: {{ decision.severity }}
+                                            <span v-if="decision.execution?.step"> | Step: {{ decision.execution.step }}</span>
+                                            <span v-if="decision.execution?.iteration != null"> | Iteration: {{ decision.execution.iteration }}</span>
+                                        </div>
+                                    </div>
+                                    <Tag :value="decision.severity" severity="info" />
+                                </div>
+                                <div v-if="decision.metrics && Object.keys(decision.metrics).length > 0" class="mt-3 text-xs text-blue-700/80 dark:text-blue-300/80">
+                                    <div class="font-bold mb-1">Metrics</div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                                        <div v-for="([key, value], metricIdx) in Object.entries(decision.metrics)" :key="`${chain.decisionId}-${idx}-${metricIdx}`">
+                                            {{ key }}: {{ value }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div v-if="decision.conflictingIds?.length" class="mt-3 text-xs text-blue-700/80 dark:text-blue-300/80">
+                                    <div class="font-bold mb-1">References</div>
+                                    <div class="space-y-2">
+                                        <div
+                                            v-for="(refId, refIdx) in decision.conflictingIds"
+                                            :key="`${chain.decisionId}-${idx}-ref-${refIdx}`"
+                                            class="rounded border border-blue-200/60 dark:border-blue-800/50 px-2 py-1"
+                                        >
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <span>{{ resolveIdName(refId) }}</span>
+                                                <CopyButton
+                                                    v-if="showIds"
+                                                    :value="refId"
+                                                    label="Reference ID"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                        <div v-else class="rounded-xl border border-blue-200/60 dark:border-blue-800/50 bg-white/40 dark:bg-gray-950/10 px-4 py-3 text-xs font-semibold text-blue-700/80 dark:text-blue-300/80">
+                            {{ chain.records.length }} record{{ chain.records.length === 1 ? '' : 's' }} hidden.
                         </div>
                     </div>
                 </div>
