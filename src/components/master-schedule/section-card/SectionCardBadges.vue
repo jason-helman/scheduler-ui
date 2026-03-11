@@ -34,6 +34,10 @@ defineProps({
         type: Array,
         default: () => []
     },
+    subsectionBadgeItems: {
+        type: Array,
+        default: () => []
+    },
     effectiveInlineBadgeRows: {
         type: Number,
         default: 1
@@ -68,6 +72,7 @@ const emit = defineEmits(['jump-to-teacher', 'jump-to-section'])
             <BadgeList :items="compactBadgeLabels" />
             <BadgeList :items="coTeacherBadgeItems" @item-click="item => emit('jump-to-teacher', item.payload)" />
             <BadgeList :items="mainSectionBadgeItems" @item-click="item => emit('jump-to-section', item.payload)" />
+            <BadgeList :items="subsectionBadgeItems" @item-click="item => emit('jump-to-section', item.payload)" />
         </div>
     </div>
 
@@ -91,6 +96,17 @@ const emit = defineEmits(['jump-to-teacher', 'jump-to-section'])
             <span :class="['font-black uppercase tracking-wider text-indigo-500 dark:text-indigo-300 select-none cursor-default shrink-0', isCompressed ? 'text-[6px]' : 'text-[7px]']">Main</span>
             <BadgeList
                 :items="mainSectionBadgeItems"
+                shape="rounded"
+                :wrap="false"
+                container-class="min-w-0 flex-1"
+                @item-click="item => emit('jump-to-section', item.payload)"
+            />
+        </div>
+
+        <div v-if="subsectionBadgeItems.length > 0" class="flex flex-nowrap gap-1 items-center min-w-0">
+            <span :class="['font-black uppercase tracking-wider text-violet-500 dark:text-violet-300 select-none cursor-default shrink-0', isCompressed ? 'text-[6px]' : 'text-[7px]']">Subsections</span>
+            <BadgeList
+                :items="subsectionBadgeItems"
                 shape="rounded"
                 :wrap="false"
                 container-class="min-w-0 flex-1"

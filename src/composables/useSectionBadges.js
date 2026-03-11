@@ -179,6 +179,15 @@ export function useSectionBadges({ section, currentTeacherId, localDataset, isCo
         return indexedParent || { sectionId: parentSectionId }
     })
 
+    const childSubsections = computed(() => {
+        const sectionId = sectionValue.value.sectionId
+        if (sectionId == null || !Array.isArray(localDataset.value?.sections)) return []
+
+        return localDataset.value.sections.filter(
+            section => section?.parentSectionId != null && String(section.parentSectionId) === String(sectionId)
+        )
+    })
+
     const mainSectionBadgeItems = computed(() => {
         if (!parentSection.value) return []
         const parent = parentSection.value
@@ -196,6 +205,21 @@ export function useSectionBadges({ section, currentTeacherId, localDataset, isCo
         ]
     })
 
+    const subsectionBadgeItems = computed(() =>
+        childSubsections.value.map((subsection, index) => {
+            const courseName = subsection.course_name || subsection.courseCode || `Section ${subsection.sectionId}`
+            return {
+                key: `sub-${subsection.sectionId}-${index}`,
+                label: courseName,
+                tone: 'violet',
+                tooltip: `Jump to subsection (${courseName})`,
+                truncate: true,
+                clickable: true,
+                payload: subsection.sectionId
+            }
+        })
+    )
+
     return {
         compactBadgeLabels,
         inlineBadges,
@@ -203,6 +227,7 @@ export function useSectionBadges({ section, currentTeacherId, localDataset, isCo
         useCompactBadgeOverlay,
         coTeachers,
         coTeacherBadgeItems,
-        mainSectionBadgeItems
+        mainSectionBadgeItems,
+        subsectionBadgeItems
     }
 }

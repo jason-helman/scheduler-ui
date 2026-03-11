@@ -97,6 +97,51 @@ const parentSection = computed(() => {
     return sectionById.value.get(String(parentId)) || null
 })
 
+const childSubsections = computed(() => {
+    const selectedSectionId = selectedSectionModel.value?.sectionId
+    if (selectedSectionId == null) return []
+
+    return (props.sectionRows || []).filter(
+        (section) => String(section.parentSectionId) === String(selectedSectionId),
+    )
+})
+
+const spanSections = computed(() => {
+    const spanId = selectedSectionModel.value?.spanId
+    if (spanId == null) return []
+
+    return (props.sectionRows || []).filter((section) => String(section.spanId) === String(spanId))
+})
+
+const labContext = computed(() => {
+    const selected = selectedSectionModel.value
+    if (!selected?.spanId) return null
+
+    const relatedSections = spanSections.value.filter(
+        (section) => String(section.sectionId) !== String(selected.sectionId),
+    )
+    if (relatedSections.length === 0) return null
+
+    const mainSection = relatedSections.find((section) => !section.isLab) || null
+    const labPartner = relatedSections.find((section) => section.isLab) || null
+
+    if (selected.isLab) {
+        return {
+            kind: 'lab',
+            counterpart: mainSection || relatedSections[0],
+        }
+    }
+
+    if (labPartner) {
+        return {
+            kind: 'main',
+            counterpart: labPartner,
+        }
+    }
+
+    return null
+})
+
 const isInheritedDecisionView = computed(() =>
     Boolean(
         selectedSectionModel.value?.parentSectionId != null &&
@@ -720,6 +765,67 @@ watch(decisionChains, (chains) => {
                     >
                         View Parent
                     </button>
+                </div>
+
+                <div
+                    v-if="labContext"
+                    class="flex items-center justify-between gap-4 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/60 dark:bg-emerald-900/10 px-5 py-4"
+                >
+                    <div class="min-w-0">
+                        <div class="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-300">Lab Context</div>
+                        <div class="mt-1 text-sm font-semibold text-emerald-800 dark:text-emerald-100">
+                            <span v-if="labContext.kind === 'lab'">
+                                This lab is paired to {{ labContext.counterpart.course_name || resolveIdName(labContext.counterpart.sectionId, 'section') }}.
+                            </span>
+                            <span v-else>
+                                This main section is paired to lab {{ labContext.counterpart.course_name || resolveIdName(labContext.counterpart.sectionId, 'section') }}.
+                            </span>
+                        </div>
+                        <div class="mt-1 text-xs text-emerald-700/80 dark:text-emerald-200/80">
+                            Span-linked sections may share a placement narrative when adjacency rules drive the decision.
+                        </div>
+                        <div class="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-200">
+                            <span class="rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2.5 py-1">
+                                Span ID: {{ selectedSectionModel.spanId }}
+                            </span>
+                            <span class="rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2.5 py-1">
+                                {{ labContext.kind === 'lab' ? 'Main Section' : 'Lab Section' }}: {{ labContext.counterpart.course_name || resolveIdName(labContext.counterpart.sectionId, 'section') }}
+                            </span>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        class="shrink-0 rounded-full border border-emerald-200 dark:border-emerald-800 px-3 py-1.5 text-xs font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-200 transition-colors hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
+                        @click="selectSection(labContext.counterpart)"
+                    >
+                        View {{ labContext.kind === 'lab' ? 'Main' : 'Lab' }}
+                    </button>
+                </div>
+
+                <div
+                    v-if="childSubsections.length > 0"
+                    class="flex items-center justify-between gap-4 rounded-2xl border border-violet-100 dark:border-violet-900/30 bg-violet-50/60 dark:bg-violet-900/10 px-5 py-4"
+                >
+                    <div class="min-w-0">
+                        <div class="text-[10px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-300">Subsections</div>
+                        <div class="mt-1 text-sm font-semibold text-violet-800 dark:text-violet-100">
+                            This section owns {{ childSubsections.length }} subsection{{ childSubsections.length === 1 ? '' : 's' }}.
+                        </div>
+                        <div class="mt-1 text-xs text-violet-700/80 dark:text-violet-200/80">
+                            Subsections inherit this section's placement narrative and can be inspected directly from here.
+                        </div>
+                        <div class="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-violet-700 dark:text-violet-200">
+                            <button
+                                v-for="subsection in childSubsections"
+                                :key="subsection.sectionId"
+                                type="button"
+                                class="rounded-full border border-violet-200 dark:border-violet-800 bg-violet-100 dark:bg-violet-900/40 px-3 py-1.5 text-left transition-colors hover:bg-violet-200 dark:hover:bg-violet-900/60"
+                                @click="selectSection(subsection)"
+                            >
+                                {{ subsection.course_name || resolveIdName(subsection.sectionId, 'section') }}
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div v-if="!hasDecisionLogs" class="p-12 text-center bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/30">

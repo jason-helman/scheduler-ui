@@ -94,7 +94,8 @@ const {
     useCompactBadgeOverlay,
     coTeachers,
     coTeacherBadgeItems,
-    mainSectionBadgeItems
+    mainSectionBadgeItems,
+    subsectionBadgeItems
 } = useSectionBadges({
     section: computed(() => props.section),
     currentTeacherId: computed(() => props.currentTeacherId),
@@ -109,6 +110,13 @@ const isJumpPulseActive = computed(() =>
     props.jumpPulseSectionId != null &&
     String(props.section.sectionId) === String(props.jumpPulseSectionId)
 )
+
+const jumpPulseClass = computed(() => {
+    if (!isJumpPulseActive.value) return ''
+    if (props.section.parentSectionId) return 'jump-pulse-subsection'
+    if (props.section.isLab) return 'jump-pulse-lab'
+    return 'jump-pulse-primary'
+})
 
 const recomputeBadgeRows = async () => {
     if (isMasterGridScrolling?.value) return
@@ -193,7 +201,7 @@ if (masterBadgeFitEpoch) {
          }"
          :class="[
             'border bg-white dark:bg-gray-900 shadow-sm transition-[box-shadow,background-color,border-color,outline-color] duration-300 hover:shadow-md flex flex-col justify-between overflow-hidden z-10 w-full h-full min-h-0 group/segment relative hover:z-[200] cursor-default ring-inset hover:ring-2 hover:ring-blue-500/40',
-            isJumpPulseActive ? 'jump-pulse-hover' : '',
+            jumpPulseClass,
             store.isCompressed ? 'p-1.5 rounded-lg' : 'p-2.5 rounded-xl',
             section.locked ? 'border-amber-200 dark:border-amber-900/50 bg-amber-50/30 dark:bg-amber-900/10' : 'border-gray-100 dark:border-gray-700',
             section.isLab ? 'is-lab' : '',
@@ -236,6 +244,7 @@ if (masterBadgeFitEpoch) {
                 :co-teachers="coTeachers"
                 :co-teacher-badge-items="coTeacherBadgeItems"
                 :main-section-badge-items="mainSectionBadgeItems"
+                :subsection-badge-items="subsectionBadgeItems"
                 :effective-inline-badge-rows="effectiveInlineBadgeRows"
                 :enrolled-count="enrolledCount"
                 :course-capacity="courseCapacity"
@@ -327,7 +336,7 @@ if (masterBadgeFitEpoch) {
     background-color: #312e81 !important;
 }
 
-.jump-pulse-hover {
+.jump-pulse-primary {
     outline: 3px solid #3b82f6 !important;
     border-color: #3b82f6 !important;
     background-color: #eff6ff !important;
@@ -335,8 +344,32 @@ if (masterBadgeFitEpoch) {
     transition: background-color 380ms ease, border-color 380ms ease, box-shadow 380ms ease, outline-color 380ms ease !important;
 }
 
-.my-app-dark .jump-pulse-hover {
+.my-app-dark .jump-pulse-primary {
     background-color: #1e3a8a !important;
+}
+
+.jump-pulse-lab {
+    outline: 3px solid #10b981 !important;
+    border-color: #10b981 !important;
+    background-color: #ecfdf5 !important;
+    box-shadow: 0 4px 12px -4px rgba(16, 185, 129, 0.35) !important;
+    transition: background-color 380ms ease, border-color 380ms ease, box-shadow 380ms ease, outline-color 380ms ease !important;
+}
+
+.my-app-dark .jump-pulse-lab {
+    background-color: #064e3b !important;
+}
+
+.jump-pulse-subsection {
+    outline: 3px solid #6366f1 !important;
+    border-color: #6366f1 !important;
+    background-color: #eef2ff !important;
+    box-shadow: 0 4px 12px -4px rgba(99, 102, 241, 0.35) !important;
+    transition: background-color 380ms ease, border-color 380ms ease, box-shadow 380ms ease, outline-color 380ms ease !important;
+}
+
+.my-app-dark .jump-pulse-subsection {
+    background-color: #312e81 !important;
 }
 
 /* Scrollbar refinement */
