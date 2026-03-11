@@ -32,11 +32,11 @@ const props = defineProps({
         type: Object,
         default: null
     },
-    hasDiagnostics: {
+    hasDecisionLogs: {
         type: Boolean,
         default: false
     },
-    currentSectionDiagnostics: {
+    currentSectionDecisionLogs: {
         type: Array,
         required: true
     },
@@ -77,21 +77,6 @@ const activeSectionListTabModel = computed({
     set: (value) => emit('update:activeSectionListTab', value)
 })
 
-const sectionById = computed(() => {
-    const map = new Map()
-    ;(props.sectionRows || []).forEach((section) => map.set(String(section.sectionId), section))
-    return map
-})
-
-const isSubsectionTarget = (diagnostic) => {
-    if (!diagnostic || diagnostic.targetEntityId == null || !selectedSectionModel.value) return false
-    const target = sectionById.value.get(String(diagnostic.targetEntityId))
-    if (!target) return false
-    return String(target.parentSectionId ?? '') === String(selectedSectionModel.value.sectionId)
-}
-
-const targetLabel = (diagnostic) => (isSubsectionTarget(diagnostic) ? 'Caused by subsection' : 'Target')
-
 const sectionTableVirtualScrollerOptions = {
     itemSize: 38,
     numToleratedItems: 12,
@@ -103,7 +88,7 @@ const unplacedTableRef = ref(null)
 const placedTableRef = ref(null)
 const invalidTableRef = ref(null)
 
-const rowClass = (data) => 'diag-section-row diag-section-row--' + String(data.sectionId)
+const rowClass = (data) => 'decision-section-row decision-section-row--' + String(data.sectionId)
 
 const scrollToTargetSection = async () => {
     if (props.scrollToSectionId == null) return
@@ -129,7 +114,7 @@ const scrollToTargetSection = async () => {
             continue
         }
 
-        const renderedRow = root.querySelector('.diag-section-row--' + targetId)
+        const renderedRow = root.querySelector('.decision-section-row--' + targetId)
         if (renderedRow) {
             renderedRow.scrollIntoView({ block: 'center', inline: 'nearest' })
             return
@@ -206,14 +191,9 @@ watch(() => props.scrollRequestKey, (requestKey) => {
                         >
                             <Column field="course_name" header="Course" sortable class="font-bold text-sm" style="width: 44%"></Column>
                             <Column field="teacher_name" header="Teacher" sortable class="text-xs" style="width: 36%"></Column>
-                            <Column field="diagnosticCount" header="Alerts" sortable style="width: 5rem">
+                            <Column field="decisionCount" header="Logs" sortable style="width: 5rem">
                                 <template #body="slotProps">
-                                    <Badge :value="slotProps.data.diagnosticCount" :severity="slotProps.data.diagnosticCount > 0 ? 'danger' : 'secondary'"></Badge>
-                                </template>
-                            </Column>
-                            <Column field="diagnosticTotalCount" header="Total" sortable style="width: 5rem">
-                                <template #body="slotProps">
-                                    <Badge :value="slotProps.data.diagnosticTotalCount" severity="info"></Badge>
+                                    <Badge :value="slotProps.data.decisionCount" severity="info"></Badge>
                                 </template>
                             </Column>
                         </DataTable>
@@ -237,14 +217,9 @@ watch(() => props.scrollRequestKey, (requestKey) => {
                         >
                             <Column field="course_name" header="Course" sortable class="font-bold text-sm" style="width: 44%"></Column>
                             <Column field="teacher_name" header="Teacher" sortable class="text-xs" style="width: 36%"></Column>
-                            <Column field="diagnosticCount" header="Alerts" sortable style="width: 5rem">
+                            <Column field="decisionCount" header="Logs" sortable style="width: 5rem">
                                 <template #body="slotProps">
-                                    <Badge :value="slotProps.data.diagnosticCount" :severity="slotProps.data.diagnosticCount > 0 ? 'warning' : 'secondary'"></Badge>
-                                </template>
-                            </Column>
-                            <Column field="diagnosticTotalCount" header="Total" sortable style="width: 5rem">
-                                <template #body="slotProps">
-                                    <Badge :value="slotProps.data.diagnosticTotalCount" severity="info"></Badge>
+                                    <Badge :value="slotProps.data.decisionCount" severity="info"></Badge>
                                 </template>
                             </Column>
                         </DataTable>
@@ -257,7 +232,7 @@ watch(() => props.scrollRequestKey, (requestKey) => {
                             selectionMode="single"
                             stripedRows
                             class="p-datatable-sm"
-                            sortField="invalidDiagnosticCount"
+                            sortField="decisionCount"
                             :sortOrder="-1"
                             :rowClass="rowClass"
                             dataKey="sectionId"
@@ -268,14 +243,14 @@ watch(() => props.scrollRequestKey, (requestKey) => {
                         >
                             <Column field="course_name" header="Course" sortable class="font-bold text-sm" style="width: 40%"></Column>
                             <Column field="teacher_name" header="Teacher" sortable class="text-xs" style="width: 34%"></Column>
-                            <Column field="invalidDiagnosticCount" header="Invalid" sortable style="width: 6rem">
+                            <Column field="decisionCount" header="Logs" sortable style="width: 6rem">
                                 <template #body="slotProps">
-                                    <Badge :value="slotProps.data.invalidDiagnosticCount" severity="danger"></Badge>
+                                    <Badge :value="slotProps.data.decisionCount" severity="info"></Badge>
                                 </template>
                             </Column>
-                            <Column field="diagnosticCount" header="Alerts" sortable style="width: 5rem">
+                            <Column field="invalidDiagnosticCount" header="Invalid" sortable style="width: 5rem">
                                 <template #body="slotProps">
-                                    <Badge :value="slotProps.data.diagnosticCount" :severity="slotProps.data.diagnosticCount > 0 ? 'danger' : 'secondary'"></Badge>
+                                    <Badge :value="slotProps.data.invalidDiagnosticCount" :severity="slotProps.data.invalidDiagnosticCount > 0 ? 'danger' : 'secondary'"></Badge>
                                 </template>
                             </Column>
                         </DataTable>
@@ -285,11 +260,11 @@ watch(() => props.scrollRequestKey, (requestKey) => {
         </div>
 
         <div class="lg:col-span-2 card bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col min-h-0">
-            <h3 class="text-xl font-black mb-6 px-2">Diagnostic Report</h3>
+            <h3 class="text-xl font-black mb-6 px-2">Section Decision Log</h3>
 
             <div v-if="!selectedSectionModel" class="flex-1 min-h-0 flex flex-col items-center justify-center py-10 text-gray-400">
-                <i class="pi pi-search text-6xl mb-4 opacity-20"></i>
-                <p class="font-medium text-lg">Select a section to inspect diagnostics.</p>
+                <i class="pi pi-sitemap text-6xl mb-4 opacity-20"></i>
+                <p class="font-medium text-lg">Select a section to inspect decision logs.</p>
             </div>
 
             <div v-else class="flex-1 min-h-0 flex flex-col gap-6">
@@ -314,77 +289,56 @@ watch(() => props.scrollRequestKey, (requestKey) => {
                     </div>
                 </div>
 
-                <div v-if="!hasDiagnostics" class="p-12 text-center bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/30">
+                <div v-if="!hasDecisionLogs" class="p-12 text-center bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/30">
                     <i class="pi pi-exclamation-triangle text-5xl text-amber-500 mb-4"></i>
-                    <p class="text-amber-700 dark:text-amber-400 font-bold text-lg mb-2">No Diagnostics Available</p>
-                    <p class="text-amber-600/70 dark:text-amber-500/70 text-sm">Diagnostics are generated when you run the placement simulation.</p>
+                    <p class="text-amber-700 dark:text-amber-400 font-bold text-lg mb-2">No Decision Logs Available</p>
+                    <p class="text-amber-600/70 dark:text-amber-500/70 text-sm">Decision logs are emitted in trace mode during placement.</p>
                 </div>
 
-                <div v-else-if="currentSectionDiagnostics.length === 0" class="p-12 text-center bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+                <div v-else-if="currentSectionDecisionLogs.length === 0" class="p-12 text-center bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
                     <i class="pi pi-check-circle text-5xl text-emerald-500 mb-4"></i>
-                    <p class="text-emerald-700 dark:text-emerald-400 font-bold text-lg mb-2">No Section Diagnostics Recorded</p>
-                    <p class="text-emerald-600/70 dark:text-emerald-500/70 text-sm">This section has no diagnostics in the current run.</p>
+                    <p class="text-emerald-700 dark:text-emerald-400 font-bold text-lg mb-2">No Decision Logs Recorded</p>
+                    <p class="text-emerald-600/70 dark:text-emerald-500/70 text-sm">This section has no decision logs in the current run.</p>
                 </div>
 
                 <div v-else class="h-full min-h-0 space-y-4 overflow-y-auto pr-2">
-                    <div class="flex items-center gap-2 px-2 text-amber-500">
-                        <i class="pi pi-exclamation-circle font-black"></i>
-                        <span class="text-xs font-black uppercase tracking-widest">Section Diagnostics</span>
+                    <div class="flex items-center gap-2 px-2 text-blue-500">
+                        <i class="pi pi-sitemap font-black"></i>
+                        <span class="text-xs font-black uppercase tracking-widest">Decision Records</span>
                     </div>
                     <div
-                        v-for="(diag, idx) in currentSectionDiagnostics"
-                        :key="`diag-${idx}`"
-                        :class="[
-                            'space-y-2 p-5 rounded-2xl border items-start transition-all',
-                            diag.severity === 'error'
-                                ? 'border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/5 hover:border-red-200 dark:hover:border-red-800'
-                                : (diag.severity === 'warn'
-                                    ? 'border-amber-100 dark:border-amber-900/30 bg-amber-50/50 dark:bg-amber-900/5 hover:border-amber-200 dark:hover:border-amber-800'
-                                    : 'border-blue-100 dark:border-blue-900/30 bg-blue-50/50 dark:bg-blue-900/5 hover:border-blue-200 dark:hover:border-blue-800')
-                        ]"
+                        v-for="(decision, idx) in currentSectionDecisionLogs"
+                        :key="`decision-${idx}`"
+                        class="space-y-2 p-5 rounded-2xl border border-blue-100 dark:border-blue-900/30 bg-blue-50/50 dark:bg-blue-900/5 items-start transition-all hover:border-blue-200 dark:hover:border-blue-800"
                     >
                         <div class="flex items-start justify-between gap-4">
                             <div>
-                                <div class="text-sm font-bold leading-relaxed" :class="diag.severity === 'error' ? 'text-red-700 dark:text-red-400' : (diag.severity === 'warn' ? 'text-amber-700 dark:text-amber-300' : 'text-blue-700 dark:text-blue-300')">
-                                    {{ diag.code }}: {{ diag.message }}
+                                <div class="text-sm font-bold text-blue-700 dark:text-blue-300 leading-relaxed">
+                                    {{ decision.code }}: {{ decision.message }}
                                 </div>
-                                <div class="mt-1 text-xs font-semibold" :class="diag.severity === 'error' ? 'text-red-700/80 dark:text-red-400/80' : (diag.severity === 'warn' ? 'text-amber-700/80 dark:text-amber-300/80' : 'text-blue-700/80 dark:text-blue-300/80')">
-                                    Level: {{ diag.severity }}
-                                    <span v-if="diag.category"> | Category: {{ diag.category }}</span>
+                                <div class="mt-1 text-xs text-blue-700/80 dark:text-blue-300/80 font-semibold">
+                                    Level: {{ decision.severity }}
+                                    <span v-if="decision.category"> | Category: {{ decision.category }}</span>
+                                    <span v-if="decision.retention"> | Retention: {{ decision.retention }}</span>
                                 </div>
                             </div>
-                            <Tag
-                                :value="diag.severity"
-                                :severity="diag.severity === 'error' ? 'danger' : (diag.severity === 'warn' ? 'warn' : 'info')"
-                            />
+                            <Tag :value="decision.severity" severity="info" />
                         </div>
-                        <div v-if="diag.targetEntityId != null" class="text-xs space-y-0.5" :class="diag.severity === 'error' ? 'text-red-700/80 dark:text-red-400/80' : (diag.severity === 'warn' ? 'text-amber-700/80 dark:text-amber-300/80' : 'text-blue-700/80 dark:text-blue-300/80')">
-                            <div class="flex items-center gap-2 flex-wrap">
-                                <span class="font-bold">{{ targetLabel(diag) }}:</span>
-                                <span>{{ resolveIdName(diag.targetEntityId, 'section') }}</span>
-                                <Tag v-if="isSubsectionTarget(diag)" severity="warn" value="Cause" />
-                                <CopyButton
-                                    v-if="showIds"
-                                    :value="diag.targetEntityId"
-                                    label="Target ID"
-                                />
-                            </div>
-                        </div>
-                        <div v-if="diag.metrics && Object.keys(diag.metrics).length > 0" class="text-xs" :class="diag.severity === 'error' ? 'text-red-700/80 dark:text-red-400/80' : (diag.severity === 'warn' ? 'text-amber-700/80 dark:text-amber-300/80' : 'text-blue-700/80 dark:text-blue-300/80')">
+                        <div v-if="decision.metrics && Object.keys(decision.metrics).length > 0" class="text-xs text-blue-700/80 dark:text-blue-300/80">
                             <div class="font-bold mb-1">Metrics</div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                                <div v-for="([key, value], metricIdx) in Object.entries(diag.metrics)" :key="`${idx}-${metricIdx}`">
+                                <div v-for="([key, value], metricIdx) in Object.entries(decision.metrics)" :key="`${idx}-${metricIdx}`">
                                     {{ key }}: {{ value }}
                                 </div>
                             </div>
                         </div>
-                        <div v-if="diag.conflictingIds?.length" class="text-xs" :class="diag.severity === 'error' ? 'text-red-700/80 dark:text-red-400/80' : (diag.severity === 'warn' ? 'text-amber-700/80 dark:text-amber-300/80' : 'text-blue-700/80 dark:text-blue-300/80')">
+                        <div v-if="decision.conflictingIds?.length" class="text-xs text-blue-700/80 dark:text-blue-300/80">
                             <div class="font-bold mb-1">References</div>
                             <div class="space-y-2">
                                 <div
-                                    v-for="(refId, refIdx) in diag.conflictingIds"
+                                    v-for="(refId, refIdx) in decision.conflictingIds"
                                     :key="`${idx}-ref-${refIdx}`"
-                                    class="rounded border border-current/20 px-2 py-1"
+                                    class="rounded border border-blue-200/60 dark:border-blue-800/50 px-2 py-1"
                                 >
                                     <div class="flex items-center gap-2 flex-wrap">
                                         <span>{{ resolveIdName(refId) }}</span>

@@ -56,19 +56,20 @@ const toggleLock = (sectionId) => {
 
 const goToDiagnostics = (section) => {
     store.selectedSectionId = section.sectionId
-    store.diagnosticsTargetSectionTab = '0'
     store.diagnosticsExternalScrollKey += 1
     store.currentView = 'Diagnostics'
     showDialog.value = false
 }
 
 const getDiagnosticCount = (sectionId) => {
-    if (!store.localDataset?.diagnostics?.sectionPlacement) return 0
-    return store.localDataset.diagnostics.sectionPlacement.filter(
-        d =>
-            d.entityId === sectionId &&
-            d.entityType === 'section' &&
-            ['fatal', 'skip', 'blocking', 'preserved_conflict'].includes(d.severity)
+    if (!store.localDataset?.observability?.sectionDiagnostics) return 0
+    return store.localDataset.observability.sectionDiagnostics.filter(
+        (d) => {
+            const entityId = d.subject?.entityId ?? d.entityId
+            const entityType = String(d.subject?.entityType ?? d.entityType ?? '').toLowerCase()
+            const level = String(d.level ?? d.severity ?? '').toLowerCase()
+            return entityId === sectionId && ['section', 'subsection', 'lab_section'].includes(entityType) && ['warn', 'error'].includes(level)
+        }
     ).length
 }
 </script>

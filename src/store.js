@@ -18,7 +18,6 @@ export const store = reactive({
     currentView: 'MasterSchedule',
     activeReportTab: '0',
     selectedSectionId: null,
-    diagnosticsTargetSectionTab: null,
     diagnosticsExternalScrollKey: 0,
 
     // Actions

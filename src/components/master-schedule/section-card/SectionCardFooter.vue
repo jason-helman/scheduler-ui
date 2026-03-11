@@ -57,7 +57,7 @@ const emit = defineEmits(['view-students', 'open-diagnostics', 'open-alerts'])
                     'flex items-center gap-1 font-black text-gray-600 dark:text-gray-300 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer',
                     isCompressed ? 'text-[7px]' : 'text-[8px]'
                 ]"
-                v-tooltip.top="'Open Diagnostics'"
+                v-tooltip.top="'Open Decision Logs'"
             >
                 <i :class="['pi pi-shield', isCompressed ? 'text-[7px]' : 'text-[8px]']" />
                 <span v-if="diagnosticsCount > 0">{{ diagnosticsCount }}</span>

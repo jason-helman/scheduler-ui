@@ -2,7 +2,11 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import mysql from 'mysql2/promise'
-import { runFullScheduler, QUARTER_GROUPS } from 'scheduler-library'
+import {
+  InMemoryObservabilitySink,
+  QUARTER_GROUPS,
+  SectionPlacementEngine
+} from 'scheduler-library'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -229,10 +233,15 @@ export default defineConfig({
 
                 const { dataset: incomingDataset } = JSON.parse(body);
 
-                const result = runFullScheduler(incomingDataset, {
-                  runSectionPlacement: true,
-                  runStudentPlacement: false
+                const diagnosticSink = new InMemoryObservabilitySink()
+                const decisionSink = new InMemoryObservabilitySink()
+                const engine = new SectionPlacementEngine(incomingDataset, {
+                  observability: {
+                    diagnosticSinks: [diagnosticSink],
+                    decisionSinks: [decisionSink]
+                  }
                 });
+                const result = await engine.run()
 
                 // Map results back to UI format
                 const updatedSections = incomingDataset.sections.map(uiS => {
@@ -277,7 +286,16 @@ export default defineConfig({
                   };
                 });
 
-                return res.end(JSON.stringify({ sections: updatedSections, diagnostics: result.diagnostics }));
+                return res.end(JSON.stringify({
+                  sections: updatedSections,
+                  observability: {
+                    sectionDiagnostics: diagnosticSink.records,
+                    sectionDecisions: decisionSink.records,
+                    studentDiagnostics: [],
+                    studentDecisions: []
+                  },
+                  observabilityOutcome: result.observabilityOutcome
+                }));
               } catch (err) {
                 console.error('Placement Error:', err);
                 res.statusCode = 500;

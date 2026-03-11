@@ -81,7 +81,7 @@ const hasCapacityRisk = computed(() => {
 })
 const diagnosticsCount = computed(() => {
     if (!props.sectionDiagnosticsCounts) return 0
-    return props.sectionDiagnosticsCounts.totalBySectionId?.get(String(props.section.sectionId)) || 0
+    return props.sectionDiagnosticsCounts.decisionTotalBySectionId?.get(String(props.section.sectionId)) || 0
 })
 const actionableAlertsCount = computed(() => {
     if (!props.sectionDiagnosticsCounts) return 0
@@ -249,7 +249,7 @@ if (masterBadgeFitEpoch) {
         <SectionCardFooter
             :section="section"
             :is-compressed="store.isCompressed"
-            :show-diagnostics-action="!!store.localDataset?.diagnostics"
+            :show-diagnostics-action="!!store.localDataset?.observability"
             :diagnostics-count="diagnosticsCount"
             :show-alerts-action="actionableAlertsCount > 0"
             :alerts-count="actionableAlertsCount"

@@ -32,7 +32,7 @@ const hoverTraceEntriesForCell = computed(() => {
 })
 
 const getCombinedTone = (entries) => {
-    if (entries.some(entry => entry.code === 'SECTION_FINAL_PLACEMENT')) return 'success'
+    if (entries.some(entry => entry.code === 'section.decision.adoption.final_selected')) return 'success'
     if (entries.some(entry => entry.tone === 'danger')) return 'danger'
     if (entries.some(entry => entry.tone === 'warning')) return 'warning'
     return 'info'
@@ -64,14 +64,14 @@ const buildEntryScoreBadges = (entry) => {
 }
 
 const formatTraceCodeLabel = (code) => {
-    const key = String(code || '').toUpperCase()
+    const key = String(code || '')
     const labels = {
-        DECISION_SUMMARY: 'SUMMARY',
-        CANDIDATE_REJECTED_FILTER: 'REJECTED',
-        CANDIDATE_SELECTED: 'SELECTED',
-        VALID_CANDIDATE_SUMMARY: 'VALID-SUM',
-        VALID_CANDIDATE_SCORED: 'VALID-SCORE',
-        SECTION_FINAL_PLACEMENT: 'FINAL'
+        'section.decision.candidate.evaluated': 'EVAL',
+        'section.decision.candidate.ranked': 'RANKED',
+        'section.decision.candidate.eliminated': 'REJECTED',
+        'section.decision.strategy.tabu_transition': 'TABU',
+        'section.decision.strategy.final_selected': 'SELECTED',
+        'section.decision.adoption.final_selected': 'FINAL'
     }
     return labels[key] || key
 }
@@ -142,7 +142,7 @@ const combinedHoverTraceGroupsForCell = computed(() => {
         ]"
     >
         <div class="trace-overlay-card__code">
-            {{ group.entries.length }} Trace Event{{ group.entries.length === 1 ? '' : 's' }}
+            {{ group.entries.length }} Decision{{ group.entries.length === 1 ? '' : 's' }}
         </div>
         <div class="trace-overlay-card__list">
             <div
@@ -155,10 +155,10 @@ const combinedHoverTraceGroupsForCell = computed(() => {
                     <span v-if="buildEntryScoreBadges(entry).length > 0" class="trace-overlay-card__scores">
                         {{ buildEntryScoreBadges(entry).join(' • ') }}
                     </span>
-                    <span v-else class="trace-overlay-card__scores trace-overlay-card__scores--na">No score</span>
+                    <span v-else class="trace-overlay-card__scores trace-overlay-card__scores--na">No metrics</span>
                 </div>
                 <div class="trace-overlay-card__secondary-row">
-                    {{ entry.message || 'Trace event' }}
+                    {{ entry.message || 'Decision event' }}
                 </div>
             </div>
         </div>

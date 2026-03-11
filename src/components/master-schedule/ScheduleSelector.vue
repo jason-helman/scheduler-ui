@@ -54,7 +54,6 @@ const clearLoadedScheduleState = () => {
     store.selectionEpoch += 1
     commitLocalDataset(null)
     store.selectedSectionId = null
-    store.diagnosticsTargetSectionTab = null
     store.diagnosticsExternalScrollKey = 0
 }
 
@@ -70,7 +69,7 @@ const fetchData = async () => {
             store.selectedVersion.schedule_version_id
         )
         if (requestEpoch !== store.selectionEpoch) return
-        commitLocalDataset({ ...dataset, diagnostics: null })
+        commitLocalDataset({ ...dataset, observability: null })
     } catch (e) {
         store.error = "Failed to fetch dataset: " + e.message
     } finally {
@@ -91,7 +90,7 @@ const runPlacement = async () => {
     const requestDataset = store.localDataset
     const datasetForPlacement = {
         ...requestDataset,
-        diagnostics: null,
+        observability: null,
         settings: {
             ...(requestDataset.settings || {}),
             diagnosticsMode: 'trace'
@@ -131,25 +130,14 @@ const runPlacement = async () => {
             return s
         })
 
-        const incomingDiagnostics = result?.diagnostics || {}
-        const nextDiagnostics = {
-            validation: [
-                ...(incomingDiagnostics.validation || incomingDiagnostics.validation_diagnostics || [])
-            ],
-            sectionPlacement: [
-                ...(incomingDiagnostics.sectionPlacement || incomingDiagnostics.section_placement || [])
-            ],
-            studentPlacement: [
-                ...(incomingDiagnostics.studentPlacement || incomingDiagnostics.student_placement || [])
-            ]
-        }
+        const nextObservability = result?.observability || null
 
-        // Atomically replace dataset snapshot so derived diagnostics never see
+        // Atomically replace dataset snapshot so derived observability never sees
         // "new sections + old/null diagnostics" intermediate state.
         commitLocalDataset({
             ...store.localDataset,
             sections: nextSections,
-            diagnostics: nextDiagnostics
+            observability: nextObservability
         })
     } catch (e) {
         store.error = "Failed to run placement: " + e.message
@@ -191,7 +179,7 @@ const clearPlacements = () => {
     commitLocalDataset({
         ...store.localDataset,
         sections: nextSections,
-        diagnostics: null
+        observability: null
     })
 }
 

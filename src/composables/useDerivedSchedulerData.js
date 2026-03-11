@@ -1,17 +1,8 @@
 import { computed } from 'vue'
 import { store } from '../store'
 
-const DECISION_CODES = new Set([
-    'DECISION_SUMMARY',
-    'CANDIDATE_REJECTED_FILTER',
-    'CANDIDATE_SELECTED',
-    'VALID_CANDIDATE_SUMMARY',
-    'VALID_CANDIDATE_SCORED',
-    'SECTION_FINAL_PLACEMENT'
-])
-
-const ACTIONABLE_SEVERITIES = new Set(['fatal', 'skip', 'blocking', 'preserved_conflict'])
-const VALIDATION_ISSUE_SEVERITIES = new Set(['fatal', 'skip', 'blocking'])
+const ACTIONABLE_LEVELS = new Set(['warn', 'error'])
+const SECTION_ENTITY_TYPES = new Set(['section', 'subsection', 'lab_section'])
 
 const EMPTY_REFERENCE_INDEX = () => ({
     index: new Map(),
@@ -27,24 +18,10 @@ const EMPTY_REFERENCE_INDEX = () => ({
     }
 })
 
-const normalizeDiagnostic = (diagnostic) => {
-    if (!diagnostic || typeof diagnostic !== 'object') return null
-
-    const inferredEntityId = diagnostic.entityId ?? diagnostic.entity_id ?? diagnostic.id
-    const inferredEntityType = diagnostic.entityType ?? diagnostic.entity_type ?? diagnostic.type
-
-    const normalized = {
-        ...diagnostic,
-        entityId: inferredEntityId,
-        entityType: inferredEntityType,
-        targetEntityId: diagnostic.targetEntityId ?? diagnostic.target_entity_id,
-        conflictingIds: diagnostic.conflictingIds ?? diagnostic.conflicting_ids,
-        message: diagnostic.message ?? diagnostic.log ?? diagnostic.reason ?? '',
-        metrics: diagnostic.metrics ?? diagnostic.meta
-    }
-
-    if (normalized.entityId == null && !normalized.message && !normalized.code) return null
-    return normalized
+const toDisplaySeverity = (record) => {
+    if (record?.severity) return String(record.severity)
+    if (record?.level) return String(record.level)
+    return 'info'
 }
 
 const normalizeMetricKey = (key) => {
@@ -65,6 +42,63 @@ const normalizeMetricKey = (key) => {
 }
 
 const isPlacedSection = (section) => Boolean(section?.coursePeriodIds && section.coursePeriodIds.length > 0)
+
+const normalizeRelatedRefs = (record) => {
+    if (Array.isArray(record?.related)) return record.related
+
+    const legacyIds = record?.conflictingIds ?? record?.conflicting_ids
+    if (!Array.isArray(legacyIds)) return []
+
+    return legacyIds.map((entityId) => ({
+        entityType: 'course_period',
+        entityId,
+        role: 'related'
+    }))
+}
+
+const normalizeRecord = (record, family) => {
+    if (!record || typeof record !== 'object') return null
+
+    const subject = record.subject || {
+        entityId: record.entityId ?? record.entity_id ?? record.id,
+        entityType: record.entityType ?? record.entity_type ?? record.type ?? 'system'
+    }
+
+    const entityId = subject?.entityId
+    const entityType = subject?.entityType
+    const related = normalizeRelatedRefs(record)
+    const targetRef = related.find((ref) => ['target', 'candidate', 'blocked_by', 'conflict'].includes(ref.role))
+
+    const normalized = {
+        ...record,
+        family,
+        entityId,
+        entityType,
+        targetEntityId: record.targetEntityId ?? record.target_entity_id ?? targetRef?.entityId ?? null,
+        conflictingIds: record.conflictingIds ?? record.conflicting_ids ?? related.map((ref) => ref.entityId),
+        message: record.message ?? record.log ?? record.reason ?? '',
+        metrics: record.metrics ?? record.meta ?? {},
+        severity: toDisplaySeverity(record),
+        level: record.level ?? null,
+        category: record.category ?? null,
+        subject,
+        related
+    }
+
+    if (normalized.entityId == null && !normalized.message && !normalized.code) return null
+    return normalized
+}
+
+const normalizeTypeForLookup = (entityType) => {
+    if (entityType === 'course_period') return 'period'
+    if (entityType === 'request_group') return 'group'
+    if (SECTION_ENTITY_TYPES.has(entityType)) return 'section'
+    return entityType
+}
+
+const isSectionRecord = (record) => SECTION_ENTITY_TYPES.has(String(record?.entityType || '').toLowerCase())
+const isSystemRecord = (record) => String(record?.entityType || '').toLowerCase() === 'system'
+const isActionableSeverity = (severity) => ACTIONABLE_LEVELS.has(String(severity || '').toLowerCase())
 
 const buildIdReferenceIndex = (dataset) => {
     const refIndex = EMPTY_REFERENCE_INDEX()
@@ -349,179 +383,194 @@ const deriveReportData = (dataset) => {
     }
 }
 
-const deriveDiagnosticsData = (dataset, diagnostics) => {
+const normalizeObservability = (observability) => {
+    if (!observability) {
+        return {
+            sectionDiagnostics: [],
+            sectionDecisions: [],
+            studentDiagnostics: [],
+            studentDecisions: []
+        }
+    }
+
+    const legacyValidation = observability.validation || observability.validation_diagnostics || []
+    const legacySectionDiagnostics = observability.sectionPlacement || observability.section_placement || []
+    const legacyStudentDiagnostics = observability.studentPlacement || observability.student_placement || []
+
+    return {
+        sectionDiagnostics: (observability.sectionDiagnostics || legacySectionDiagnostics || []).map((record) => normalizeRecord(record, 'diagnostics')).filter(Boolean),
+        sectionDecisions: (observability.sectionDecisions || []).map((record) => normalizeRecord(record, 'decisions')).filter(Boolean),
+        studentDiagnostics: [...legacyValidation, ...(observability.studentDiagnostics || legacyStudentDiagnostics || [])].map((record) => normalizeRecord(record, 'diagnostics')).filter(Boolean),
+        studentDecisions: (observability.studentDecisions || []).map((record) => normalizeRecord(record, 'decisions')).filter(Boolean)
+    }
+}
+
+const deriveDiagnosticsData = (dataset, observability) => {
+    const idReferenceIndex = buildIdReferenceIndex(dataset)
     const empty = {
         validationDiagnostics: [],
         sectionPlacementDiagnostics: [],
         studentPlacementDiagnostics: [],
+        sectionDecisionLogs: [],
+        studentDecisionLogs: [],
         sectionDiagnosticsIndex: { bySectionId: new Map(), countsBySectionId: new Map() },
+        sectionDecisionIndex: { bySectionId: new Map(), countsBySectionId: new Map() },
         sectionRows: [],
         unplacedSectionRows: [],
         placedSectionRows: [],
         invalidSectionRows: [],
-        systemAndDecisionDiagnostics: [],
+        systemDiagnostics: [],
+        allDecisionLogs: [],
+        systemDecisionLogs: [],
         validationIssueCount: 0,
         hasAnyDiagnostics: false,
+        hasAnyDecisionLogs: false,
         systemMetrics: {},
         periodOpportunitySummary: null,
         periodOpportunityRows: [],
         teacherBreakSummary: null,
         teacherBreakRows: [],
+        performanceTimingRows: [],
         diagnosticScopeIndex: new WeakMap(),
-        idReferenceIndex: buildIdReferenceIndex(dataset)
+        decisionScopeIndex: new WeakMap(),
+        idReferenceIndex
     }
 
-    if (!diagnostics) return empty
+    if (!observability) return empty
 
-    const validationRaw = diagnostics?.validation || diagnostics?.validation_diagnostics || []
-    const sectionPlacementRaw = diagnostics?.sectionPlacement || diagnostics?.section_placement || []
-    const studentPlacementRaw = diagnostics?.studentPlacement || diagnostics?.student_placement || []
+    const normalized = normalizeObservability(observability)
+    const sectionPlacement = normalized.sectionDiagnostics
+    const studentPlacement = normalized.studentDiagnostics
+    const sectionDecisionLogs = normalized.sectionDecisions
+    const studentDecisionLogs = normalized.studentDecisions
+    const allDiagnostics = [...sectionPlacement, ...studentPlacement]
+    const validation = allDiagnostics.filter((record) => record.category === 'validation')
 
-    const validation = validationRaw.map(normalizeDiagnostic).filter(Boolean)
-    const sectionPlacement = sectionPlacementRaw.map(normalizeDiagnostic).filter(Boolean)
-    const studentPlacement = studentPlacementRaw.map(normalizeDiagnostic).filter(Boolean)
-
-    const bySectionId = new Map()
-    const countsBySectionId = new Map()
+    const diagnosticBySectionId = new Map()
+    const diagnosticCountsBySectionId = new Map()
+    const decisionBySectionId = new Map()
+    const decisionCountsBySectionId = new Map()
     const invalidCountsBySectionId = new Map()
 
-    sectionPlacement.forEach((d) => {
-        if (String(d.entityType || '').toLowerCase() !== 'section') return
-        const key = String(d.entityId)
-        if (!bySectionId.has(key)) bySectionId.set(key, [])
-        bySectionId.get(key).push(d)
+    sectionPlacement.forEach((record) => {
+        if (!isSectionRecord(record)) return
+        const key = String(record.entityId)
+        if (!diagnosticBySectionId.has(key)) diagnosticBySectionId.set(key, [])
+        diagnosticBySectionId.get(key).push(record)
 
-        if (!countsBySectionId.has(key)) countsBySectionId.set(key, { actionable: 0, trace: 0 })
-        const counts = countsBySectionId.get(key)
-        if (ACTIONABLE_SEVERITIES.has(d.severity)) counts.actionable += 1
-        if (d.severity === 'non_blocking' || DECISION_CODES.has(d.code)) counts.trace += 1
+        if (!diagnosticCountsBySectionId.has(key)) diagnosticCountsBySectionId.set(key, { actionable: 0, total: 0 })
+        const counts = diagnosticCountsBySectionId.get(key)
+        counts.total += 1
+        if (isActionableSeverity(record.severity)) counts.actionable += 1
     })
 
-    validation.forEach((d) => {
-        if (String(d.entityType || '').toLowerCase() !== 'section') return
-        const key = String(d.entityId)
-        if (!bySectionId.has(key)) bySectionId.set(key, [])
-        bySectionId.get(key).push(d)
+    validation.forEach((record) => {
+        if (!isSectionRecord(record) || String(record.level) !== 'error') return
+        const key = String(record.entityId)
+        invalidCountsBySectionId.set(key, (invalidCountsBySectionId.get(key) || 0) + 1)
+    })
 
-        if (!countsBySectionId.has(key)) countsBySectionId.set(key, { actionable: 0, trace: 0 })
-        const counts = countsBySectionId.get(key)
-        if (ACTIONABLE_SEVERITIES.has(d.severity)) counts.actionable += 1
+    sectionDecisionLogs.forEach((record) => {
+        if (!isSectionRecord(record)) return
+        const key = String(record.entityId)
+        if (!decisionBySectionId.has(key)) decisionBySectionId.set(key, [])
+        decisionBySectionId.get(key).push(record)
 
-        if (d.severity === 'skip') {
-            invalidCountsBySectionId.set(key, (invalidCountsBySectionId.get(key) || 0) + 1)
-        }
+        decisionCountsBySectionId.set(key, (decisionCountsBySectionId.get(key) || 0) + 1)
     })
 
     const rows = (dataset?.sections || [])
-        .map((s) => {
-            const counts = countsBySectionId.get(String(s.sectionId)) || { actionable: 0, trace: 0 }
-            const isPlaced = isPlacedSection(s)
+        .map((section) => {
+            const diagnosticCounts = diagnosticCountsBySectionId.get(String(section.sectionId)) || { actionable: 0, total: 0 }
             return {
-                ...s,
-                isPlaced,
-                isInvalid: (invalidCountsBySectionId.get(String(s.sectionId)) || 0) > 0,
-                invalidDiagnosticCount: invalidCountsBySectionId.get(String(s.sectionId)) || 0,
-                diagnosticCount: counts.actionable,
-                traceCount: counts.trace
+                ...section,
+                isPlaced: isPlacedSection(section),
+                isInvalid: (invalidCountsBySectionId.get(String(section.sectionId)) || 0) > 0,
+                invalidDiagnosticCount: invalidCountsBySectionId.get(String(section.sectionId)) || 0,
+                diagnosticCount: diagnosticCounts.actionable,
+                diagnosticTotalCount: diagnosticCounts.total,
+                decisionCount: decisionCountsBySectionId.get(String(section.sectionId)) || 0
             }
         })
         .sort((a, b) => {
             if (a.isPlaced !== b.isPlaced) return a.isPlaced ? 1 : -1
-            const diagDelta = (b.traceCount + b.diagnosticCount) - (a.traceCount + a.diagnosticCount)
-            if (diagDelta !== 0) return diagDelta
+            const activityDelta = (b.decisionCount + b.diagnosticCount) - (a.decisionCount + a.diagnosticCount)
+            if (activityDelta !== 0) return activityDelta
             return String(a.course_name || '').localeCompare(String(b.course_name || ''))
         })
 
-    const filtered = []
-    validation.forEach((d) => {
-        if (String(d.entityType || '').toLowerCase() === 'system' || DECISION_CODES.has(d.code)) filtered.push(d)
-    })
-    sectionPlacement.forEach((d) => {
-        if (String(d.entityType || '').toLowerCase() === 'system' || DECISION_CODES.has(d.code)) filtered.push(d)
-    })
-    studentPlacement.forEach((d) => {
-        if (String(d.entityType || '').toLowerCase() === 'system' || DECISION_CODES.has(d.code)) filtered.push(d)
-    })
-
-    const metrics = {}
+    const systemMetrics = {}
     const timingOrder = ['prePopulateMs', 'greedyPlacementMs', 'tabuSearchMs', 'classroomAssignmentMs', 'diagnosticsFinalizeMs', 'totalRunMs']
     const performanceTimingRows = []
     const periodOpportunityRows = []
     let periodOpportunitySummary = null
     const teacherBreakRows = []
     let teacherBreakSummary = null
-    sectionPlacement.forEach((d) => {
-        const entityType = String(d.entityType || '').toLowerCase()
-        const isSystemDiagnostic = entityType === 'system' || d.entityId === 0 || d.entityId === '0'
-        if (!isSystemDiagnostic || !d.metrics) return
-        const isPerformanceSummary = d.code === 'DECISION_SUMMARY' && d.message === 'Section placement performance metrics.'
-        Object.entries(d.metrics).forEach(([k, v]) => {
-            const normalizedKey = normalizeMetricKey(k)
-            if (normalizedKey === 'performanceMetrics' && v && typeof v === 'object' && !Array.isArray(v)) {
-                Object.entries(v).forEach(([nestedKey, nestedValue]) => {
-                    metrics[normalizeMetricKey(nestedKey)] = nestedValue
+
+    sectionPlacement.forEach((record) => {
+        if (!isSystemRecord(record) || !record.metrics) return
+
+        Object.entries(record.metrics).forEach(([key, value]) => {
+            const normalizedKey = normalizeMetricKey(key)
+            if (normalizedKey === 'performanceMetrics' && value && typeof value === 'object' && !Array.isArray(value)) {
+                Object.entries(value).forEach(([nestedKey, nestedValue]) => {
+                    systemMetrics[normalizeMetricKey(nestedKey)] = nestedValue
                 })
                 return
             }
-
-            metrics[normalizedKey] = v
+            systemMetrics[normalizedKey] = value
         })
 
-        if (isPerformanceSummary && d.metrics.performanceMetrics && typeof d.metrics.performanceMetrics === 'object') {
-            Object.entries(d.metrics.performanceMetrics).forEach(([k, v]) => {
-                metrics[normalizeMetricKey(k)] = v
+        const metricType = record.metrics.metricType
+        if (record.code === 'section.performance.timing' || metricType === 'performance_timing') {
+            performanceTimingRows.push({
+                key: String(record.metrics.key || '-'),
+                label: String(record.metrics.label || record.metrics.key || '-'),
+                milliseconds: Number(record.metrics.milliseconds || 0),
+                order: record.metrics.order == null ? Number.MAX_SAFE_INTEGER : Number(record.metrics.order),
+                shareOfTotal: record.metrics.shareOfTotal == null ? null : Number(record.metrics.shareOfTotal),
             })
-        }
-
-        if (d.metrics.metricType === 'period_opportunity') {
-            const periodId = d.conflictingIds?.[0] ?? d.metrics.periodId
+        } else if (record.code === 'section.performance.period_opportunity_period' || metricType === 'period_opportunity') {
+            const periodId = record.related.find((ref) => ref.entityType === 'course_period')?.entityId ?? record.metrics.periodId ?? record.conflictingIds?.[0]
             periodOpportunityRows.push({
                 periodId,
-                startTime: d.metrics.startTime || '-',
-                endTime: d.metrics.endTime || '-',
-                opportunityCount: Number(d.metrics.opportunityCount || 0),
-                assignedCount: Number(d.metrics.assignedCount || 0),
-                targetAssigned: Number(d.metrics.targetAssigned || 0),
-                opportunityShare: Number(d.metrics.opportunityShare || 0),
-                assignedShare: Number(d.metrics.assignedShare || 0),
-                deltaShare: Number(d.metrics.deltaShare || 0),
-                loadIndex: Number(d.metrics.loadIndex || 0),
+                startTime: record.metrics.startTime || '-',
+                endTime: record.metrics.endTime || '-',
+                opportunityCount: Number(record.metrics.opportunityCount || 0),
+                assignedCount: Number(record.metrics.assignedCount || 0),
+                targetAssigned: Number(record.metrics.targetAssigned || 0),
+                opportunityShare: Number(record.metrics.opportunityShare || 0),
+                assignedShare: Number(record.metrics.assignedShare || 0),
+                deltaShare: Number(record.metrics.deltaShare || 0),
+                loadIndex: Number(record.metrics.loadIndex || 0),
             })
-        } else if (d.metrics.metricType === 'period_opportunity_summary') {
+        } else if (record.code === 'section.performance.period_opportunity_summary' || metricType === 'period_opportunity_summary') {
             periodOpportunitySummary = {
-                imbalanceScore: Number(d.metrics.imbalanceScore || 0),
-                periodCount: Number(d.metrics.periodCount || 0),
+                imbalanceScore: Number(record.metrics.imbalanceScore || 0),
+                periodCount: Number(record.metrics.periodCount || 0),
             }
-        } else if (d.metrics.metricType === 'teacher_break_period') {
-            const periodId = d.conflictingIds?.[0] ?? d.metrics.periodId
+        } else if (record.code === 'section.performance.teacher_break_period' || metricType === 'teacher_break_period') {
+            const periodId = record.related.find((ref) => ref.entityType === 'course_period')?.entityId ?? record.metrics.periodId ?? record.conflictingIds?.[0]
             teacherBreakRows.push({
                 periodId,
-                startTime: d.metrics.startTime || '-',
-                endTime: d.metrics.endTime || '-',
-                teacherBreakCount: Number(d.metrics.teacherBreakCount || 0),
-                teacherBreakShare: Number(d.metrics.teacherBreakShare || 0),
-                teacherWithBreakCount: Number(d.metrics.teacherWithBreakCount || 0),
+                startTime: record.metrics.startTime || '-',
+                endTime: record.metrics.endTime || '-',
+                teacherBreakCount: Number(record.metrics.teacherBreakCount || 0),
+                teacherBreakShare: Number(record.metrics.teacherBreakShare || 0),
+                teacherWithBreakCount: Number(record.metrics.teacherWithBreakCount || 0),
             })
-        } else if (d.metrics.metricType === 'teacher_break_summary') {
+        } else if (record.code === 'section.performance.teacher_break_summary' || metricType === 'teacher_break_summary') {
             teacherBreakSummary = {
-                totalTeacherBreaks: Number(d.metrics.totalTeacherBreaks || 0),
-                breakConcentrationIndex: Number(d.metrics.breakConcentrationIndex || 0),
-                periodCount: Number(d.metrics.periodCount || 0),
+                totalTeacherBreaks: Number(record.metrics.totalTeacherBreaks || 0),
+                breakConcentrationIndex: Number(record.metrics.breakConcentrationIndex || 0),
+                periodCount: Number(record.metrics.periodCount || 0),
             }
-        } else if (d.metrics.metricType === 'performance_timing') {
-            performanceTimingRows.push({
-                key: String(d.metrics.key || '-'),
-                label: String(d.metrics.label || d.metrics.key || '-'),
-                milliseconds: Number(d.metrics.milliseconds || 0),
-                order: d.metrics.order == null ? Number.MAX_SAFE_INTEGER : Number(d.metrics.order),
-                shareOfTotal: d.metrics.shareOfTotal == null ? null : Number(d.metrics.shareOfTotal),
-            })
         }
     })
 
     const derivedPerformanceTimingRows = (performanceTimingRows.length > 0
         ? performanceTimingRows
-        : Object.entries(metrics)
+        : Object.entries(systemMetrics)
             .filter(([key, value]) => /ms$/i.test(String(key)) && value != null && !Number.isNaN(Number(value)))
             .map(([key, value]) => ({
                 key,
@@ -540,30 +589,41 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
             return a.label.localeCompare(b.label)
         })
 
-    const scopeMap = new WeakMap()
-    validation.forEach((d) => scopeMap.set(d, 'validation'))
-    sectionPlacement.forEach((d) => scopeMap.set(d, 'sectionPlacement'))
-    studentPlacement.forEach((d) => scopeMap.set(d, 'studentPlacement'))
+    const diagnosticScopeIndex = new WeakMap()
+    sectionPlacement.forEach((record) => diagnosticScopeIndex.set(record, 'sectionDiagnostics'))
+    studentPlacement.forEach((record) => diagnosticScopeIndex.set(record, 'studentDiagnostics'))
+
+    const decisionScopeIndex = new WeakMap()
+    sectionDecisionLogs.forEach((record) => decisionScopeIndex.set(record, 'sectionDecisions'))
+    studentDecisionLogs.forEach((record) => decisionScopeIndex.set(record, 'studentDecisions'))
+
+    const allDecisionLogs = [...sectionDecisionLogs, ...studentDecisionLogs]
 
     return {
         validationDiagnostics: validation,
         sectionPlacementDiagnostics: sectionPlacement,
         studentPlacementDiagnostics: studentPlacement,
-        sectionDiagnosticsIndex: { bySectionId, countsBySectionId },
+        sectionDecisionLogs,
+        studentDecisionLogs,
+        sectionDiagnosticsIndex: { bySectionId: diagnosticBySectionId, countsBySectionId: diagnosticCountsBySectionId },
+        sectionDecisionIndex: { bySectionId: decisionBySectionId, countsBySectionId: decisionCountsBySectionId },
         sectionRows: rows,
-        unplacedSectionRows: rows.filter((s) => !s.isPlaced && !s.isInvalid),
-        placedSectionRows: rows.filter((s) => s.isPlaced),
+        unplacedSectionRows: rows.filter((section) => !section.isPlaced && !section.isInvalid),
+        placedSectionRows: rows.filter((section) => section.isPlaced),
         invalidSectionRows: rows
-            .filter((s) => s.isInvalid)
+            .filter((section) => section.isInvalid)
             .sort((a, b) => {
                 const invalidDelta = (b.invalidDiagnosticCount || 0) - (a.invalidDiagnosticCount || 0)
                 if (invalidDelta !== 0) return invalidDelta
                 return String(a.course_name || '').localeCompare(String(b.course_name || ''))
             }),
-        systemAndDecisionDiagnostics: filtered,
-        validationIssueCount: validation.reduce((count, d) => count + (VALIDATION_ISSUE_SEVERITIES.has(d.severity) ? 1 : 0), 0),
-        hasAnyDiagnostics: (validation.length > 0 || sectionPlacement.length > 0 || studentPlacement.length > 0),
-        systemMetrics: metrics,
+        systemDiagnostics: allDiagnostics.filter((record) => isSystemRecord(record) && record.category !== 'validation'),
+        allDecisionLogs,
+        systemDecisionLogs: allDecisionLogs.filter(isSystemRecord),
+        validationIssueCount: validation.reduce((count, record) => count + (isActionableSeverity(record.severity) ? 1 : 0), 0),
+        hasAnyDiagnostics: allDiagnostics.length > 0,
+        hasAnyDecisionLogs: allDecisionLogs.length > 0,
+        systemMetrics,
         performanceTimingRows: derivedPerformanceTimingRows,
         periodOpportunitySummary,
         periodOpportunityRows: periodOpportunityRows.sort((a, b) => {
@@ -577,25 +637,27 @@ const deriveDiagnosticsData = (dataset, diagnostics) => {
             if (startDelta !== 0) return startDelta
             return String(a.periodId || '').localeCompare(String(b.periodId || ''), undefined, { numeric: true })
         }),
-        diagnosticScopeIndex: scopeMap,
-        idReferenceIndex: buildIdReferenceIndex(dataset)
+        diagnosticScopeIndex,
+        decisionScopeIndex,
+        idReferenceIndex
     }
 }
 
 export function useDerivedSchedulerData() {
     const dataset = computed(() => store.localDataset)
-    const diagnostics = computed(() => store.localDataset?.diagnostics ?? null)
+    const observability = computed(() => store.localDataset?.observability ?? store.localDataset?.diagnostics ?? null)
 
     const reportDerived = computed(() => deriveReportData(dataset.value))
-    const diagnosticsDerived = computed(() => deriveDiagnosticsData(dataset.value, diagnostics.value))
+    const diagnosticsDerived = computed(() => deriveDiagnosticsData(dataset.value, observability.value))
 
     const resolveIdName = (id, preferredType = null) => {
         if (id == null) return '-'
         const key = String(id)
         const refIndex = diagnosticsDerived.value.idReferenceIndex
+        const normalizedType = preferredType ? normalizeTypeForLookup(preferredType) : null
 
-        if (preferredType && refIndex.typed?.[preferredType]?.has(key)) {
-            return refIndex.typed[preferredType].get(key)
+        if (normalizedType && refIndex.typed?.[normalizedType]?.has(key)) {
+            return refIndex.typed[normalizedType].get(key)
         }
 
         const options = refIndex.index.get(key) || []
@@ -604,8 +666,8 @@ export function useDerivedSchedulerData() {
         return `${options[0]} (+${options.length - 1} more)`
     }
 
-    const getDiagnosticScope = (diagnostic) => diagnosticsDerived.value.diagnosticScopeIndex.get(diagnostic) || '-'
-    const isActionableSeverity = (severity) => ACTIONABLE_SEVERITIES.has(severity)
+    const getDiagnosticScope = (record) => diagnosticsDerived.value.diagnosticScopeIndex.get(record) || '-'
+    const getDecisionScope = (record) => diagnosticsDerived.value.decisionScopeIndex.get(record) || '-'
 
     return {
         reportStats: computed(() => reportDerived.value.reportStats),
@@ -620,14 +682,20 @@ export function useDerivedSchedulerData() {
         sectionPlacementDiagnostics: computed(() => diagnosticsDerived.value.sectionPlacementDiagnostics),
         validationDiagnostics: computed(() => diagnosticsDerived.value.validationDiagnostics),
         studentPlacementDiagnostics: computed(() => diagnosticsDerived.value.studentPlacementDiagnostics),
+        sectionDecisionLogs: computed(() => diagnosticsDerived.value.sectionDecisionLogs),
+        studentDecisionLogs: computed(() => diagnosticsDerived.value.studentDecisionLogs),
         sectionDiagnosticsIndex: computed(() => diagnosticsDerived.value.sectionDiagnosticsIndex),
+        sectionDecisionIndex: computed(() => diagnosticsDerived.value.sectionDecisionIndex),
         sectionRows: computed(() => diagnosticsDerived.value.sectionRows),
         unplacedSectionRows: computed(() => diagnosticsDerived.value.unplacedSectionRows),
         placedSectionRows: computed(() => diagnosticsDerived.value.placedSectionRows),
         invalidSectionRows: computed(() => diagnosticsDerived.value.invalidSectionRows),
-        systemAndDecisionDiagnostics: computed(() => diagnosticsDerived.value.systemAndDecisionDiagnostics),
+        systemDiagnostics: computed(() => diagnosticsDerived.value.systemDiagnostics),
+        allDecisionLogs: computed(() => diagnosticsDerived.value.allDecisionLogs),
+        systemDecisionLogs: computed(() => diagnosticsDerived.value.systemDecisionLogs),
         validationIssueCount: computed(() => diagnosticsDerived.value.validationIssueCount),
         hasAnyDiagnostics: computed(() => diagnosticsDerived.value.hasAnyDiagnostics),
+        hasAnyDecisionLogs: computed(() => diagnosticsDerived.value.hasAnyDecisionLogs),
         systemMetrics: computed(() => diagnosticsDerived.value.systemMetrics),
         performanceTimingRows: computed(() => diagnosticsDerived.value.performanceTimingRows),
         periodOpportunitySummary: computed(() => diagnosticsDerived.value.periodOpportunitySummary),
@@ -637,7 +705,7 @@ export function useDerivedSchedulerData() {
 
         resolveIdName,
         getDiagnosticScope,
+        getDecisionScope,
         isActionableSeverity,
-        decisionCodes: DECISION_CODES
     }
 }

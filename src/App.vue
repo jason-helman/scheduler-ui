@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { MasterSchedule } from './components/master-schedule'
 import Reports from './components/Reports.vue'
 import Diagnostics from './components/Diagnostics.vue'
+import DecisionLogs from './components/DecisionLogs.vue'
 import Button from 'primevue/button'
 import ToggleSwitch from 'primevue/toggleswitch'
 import { store } from './store'
@@ -57,6 +58,11 @@ const navItems = [
         label: 'Diagnostics',
         icon: 'pi pi-search-plus',
         view: 'Diagnostics'
+    },
+    {
+        label: 'Decision Logs',
+        icon: 'pi pi-sitemap',
+        view: 'DecisionLogs'
     }
 ]
 </script>
@@ -131,6 +137,9 @@ const navItems = [
       </div>
       <div v-else-if="store.currentView === 'Diagnostics'" class="animate-in fade-in duration-500 h-full min-h-0 overflow-hidden">
         <Diagnostics />
+      </div>
+      <div v-else-if="store.currentView === 'DecisionLogs'" class="animate-in fade-in duration-500 h-full min-h-0 overflow-hidden">
+        <DecisionLogs />
       </div>
     </main>
   </div>

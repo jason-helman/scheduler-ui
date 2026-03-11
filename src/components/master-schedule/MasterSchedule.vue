@@ -35,12 +35,12 @@ let gridScrollIdleTimer = null
 let badgeFitRafId = null
 
 const TRACE_OVERLAY_CODES = new Set([
-    'DECISION_SUMMARY',
-    'CANDIDATE_REJECTED_FILTER',
-    'CANDIDATE_SELECTED',
-    'VALID_CANDIDATE_SUMMARY',
-    'VALID_CANDIDATE_SCORED',
-    'SECTION_FINAL_PLACEMENT'
+    'section.decision.candidate.evaluated',
+    'section.decision.candidate.ranked',
+    'section.decision.candidate.eliminated',
+    'section.decision.strategy.tabu_transition',
+    'section.decision.strategy.final_selected',
+    'section.decision.adoption.final_selected'
 ])
 
 const normalizeNumberList = (value) => {
@@ -74,7 +74,7 @@ const deriveTraceQuarterRange = (diagnostic, hoveredSection) => {
         }
     }
 
-    if (diagnostic.code === 'SECTION_FINAL_PLACEMENT') {
+    if (diagnostic.code === 'section.decision.adoption.final_selected') {
         const fallbackStart = Number(hoveredSection?.startQ)
         const fallbackEnd = Number(hoveredSection?.endQ)
         if (Number.isFinite(fallbackStart) && Number.isFinite(fallbackEnd)) {
@@ -89,10 +89,10 @@ const deriveTraceQuarterRange = (diagnostic, hoveredSection) => {
 }
 
 const getTraceTone = (diagnostic) => {
-    const severity = String(diagnostic.severity || '')
-    if (severity === 'fatal' || severity === 'blocking' || severity === 'skip') return 'danger'
-    if (diagnostic.code === 'SECTION_FINAL_PLACEMENT') return 'success'
-    if (diagnostic.code === 'CANDIDATE_REJECTED_FILTER') return 'warning'
+    const severity = String(diagnostic.severity || diagnostic.level || '')
+    if (severity === 'error') return 'danger'
+    if (diagnostic.code === 'section.decision.adoption.final_selected') return 'success'
+    if (diagnostic.code === 'section.decision.candidate.eliminated') return 'warning'
     return 'info'
 }
 
@@ -116,22 +116,29 @@ const periodLabelById = computed(() => {
     return labels
 })
 
-const ACTIONABLE_ALERT_SEVERITIES = new Set(['fatal', 'skip', 'blocking', 'preserved_conflict'])
 const sectionDiagnosticsCounts = computed(() => {
-    const totalBySectionId = new Map()
+    const decisionTotalBySectionId = new Map()
     const alertsBySectionId = new Map()
-    const diagnostics = store.localDataset?.diagnostics?.sectionPlacement || []
+    const diagnostics = store.localDataset?.observability?.sectionDiagnostics || []
+    const decisions = store.localDataset?.observability?.sectionDecisions || []
 
     diagnostics.forEach((d) => {
-        if (d.entityType !== 'section') return
-        const key = String(d.entityId)
-        totalBySectionId.set(key, (totalBySectionId.get(key) || 0) + 1)
-        if (ACTIONABLE_ALERT_SEVERITIES.has(d.severity)) {
+        const entityType = String(d.subject?.entityType ?? d.entityType ?? '').toLowerCase()
+        if (!['section', 'subsection', 'lab_section'].includes(entityType)) return
+        const key = String(d.subject?.entityId ?? d.entityId)
+        if (String(d.level || d.severity || '') === 'warn' || String(d.level || d.severity || '') === 'error') {
             alertsBySectionId.set(key, (alertsBySectionId.get(key) || 0) + 1)
         }
     })
 
-    return { totalBySectionId, alertsBySectionId }
+    decisions.forEach((d) => {
+        const entityType = String(d.subject?.entityType ?? d.entityType ?? '').toLowerCase()
+        if (!['section', 'subsection', 'lab_section'].includes(entityType)) return
+        const key = String(d.subject?.entityId ?? d.entityId)
+        decisionTotalBySectionId.set(key, (decisionTotalBySectionId.get(key) || 0) + 1)
+    })
+
+    return { decisionTotalBySectionId, alertsBySectionId }
 })
 
 const openUnplacedSections = (teacher) => {
@@ -143,14 +150,12 @@ const openUnplacedSections = (teacher) => {
 
 const openSectionDiagnostics = (sectionId) => {
     store.selectedSectionId = sectionId
-    store.diagnosticsTargetSectionTab = '1'
     store.diagnosticsExternalScrollKey += 1
-    store.currentView = 'Diagnostics'
+    store.currentView = 'DecisionLogs'
 }
 
 const openSectionAlerts = (sectionId) => {
     store.selectedSectionId = sectionId
-    store.diagnosticsTargetSectionTab = '0'
     store.diagnosticsExternalScrollKey += 1
     store.currentView = 'Diagnostics'
 }
@@ -308,19 +313,16 @@ const hoverTraceData = computed(() => {
 
     if (!hoveredTeacherId) return null
 
-    const diagnostics = (
-        store.localDataset?.diagnostics?.sectionPlacement
-        || store.localDataset?.diagnostics?.section_placement
-        || []
-    )
+    const diagnostics = store.localDataset?.observability?.sectionDecisions || []
 
     const entries = diagnostics
         .map((diagnostic, idx) => {
-            const entityType = String(diagnostic.entityType ?? diagnostic.entity_type ?? '').toLowerCase()
-            const entityId = diagnostic.entityId ?? diagnostic.entity_id
+            const entityType = String(diagnostic.subject?.entityType ?? diagnostic.entityType ?? diagnostic.entity_type ?? '').toLowerCase()
+            const entityId = diagnostic.subject?.entityId ?? diagnostic.entityId ?? diagnostic.entity_id
             const code = String(diagnostic.code || '')
-            const periodIds = (diagnostic.conflictingIds ?? diagnostic.conflicting_ids ?? [])
-                .map(id => String(id))
+            const periodIds = (diagnostic.related ?? [])
+                .filter(ref => ref.entityType === 'course_period')
+                .map(ref => String(ref.entityId))
 
             if (entityType !== 'section') return null
             if (String(entityId) !== hoveredSectionId) return null
@@ -339,7 +341,7 @@ const hoverTraceData = computed(() => {
                 key: `${hoveredSectionId}-${idx}`,
                 code,
                 message,
-                severity: String(diagnostic.severity || 'non_blocking'),
+                severity: String(diagnostic.level || diagnostic.severity || 'info'),
                 periodIds,
                 startQ: quarterRange.startQ,
                 endQ: quarterRange.endQ,
@@ -352,8 +354,8 @@ const hoverTraceData = computed(() => {
         })
         .filter(Boolean)
         .sort((a, b) => {
-            const aIsFinal = a.code === 'SECTION_FINAL_PLACEMENT'
-            const bIsFinal = b.code === 'SECTION_FINAL_PLACEMENT'
+            const aIsFinal = a.code === 'section.decision.adoption.final_selected'
+            const bIsFinal = b.code === 'section.decision.adoption.final_selected'
             if (aIsFinal !== bIsFinal) return aIsFinal ? 1 : -1
             if (a.rank !== b.rank) return a.rank - b.rank
             return String(a.code).localeCompare(String(b.code))
