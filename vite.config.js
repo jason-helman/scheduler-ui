@@ -213,7 +213,6 @@ export default defineConfig({
             })),
             settings: settings[0] ? {
               maxInARow: settings[0].max_classes_in_a_row,
-              diagnosticsMode: 'trace',
             } : undefined
           };
         }
@@ -244,6 +243,7 @@ export default defineConfig({
                 const diagnosticSink = new InMemoryObservabilitySink()
                 const decisionSink = new InMemoryObservabilitySink()
                 const engine = new SectionPlacementEngine(incomingDataset, {
+                  engineSettings: incomingEngineOptions.engineSettings,
                   randomSeed: engineOptions.randomSeed,
                   strategyPipeline: engineOptions.strategyPipeline,
                   observability: {

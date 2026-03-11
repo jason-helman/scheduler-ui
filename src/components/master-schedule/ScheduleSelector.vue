@@ -69,21 +69,21 @@ const createRunSettings = (dataset) => {
     const settings = dataset?.settings || {}
 
     return {
-        diagnosticsMode: settings.diagnosticsMode ?? DEFAULT_RUN_SETTINGS.diagnosticsMode,
+        diagnosticsMode: DEFAULT_RUN_SETTINGS.diagnosticsMode,
         maxInARow: settings.maxInARow ?? DEFAULT_RUN_SETTINGS.maxInARow,
         maxInclusionStudents: settings.maxInclusionStudents ?? DEFAULT_RUN_SETTINGS.maxInclusionStudents,
         maxInclusionPercentage: settings.maxInclusionPercentage ?? DEFAULT_RUN_SETTINGS.maxInclusionPercentage,
         manualSectionClassroomFill: settings.manualSectionClassroomFill ?? DEFAULT_RUN_SETTINGS.manualSectionClassroomFill,
         separateInclusionCodes: settings.separateInclusionCodes ?? DEFAULT_RUN_SETTINGS.separateInclusionCodes,
-        weightDemandCoverage: settings.weightDemandCoverage ?? DEFAULT_RUN_SETTINGS.weightDemandCoverage,
-        weightTeacherBalance: settings.weightTeacherBalance ?? DEFAULT_RUN_SETTINGS.weightTeacherBalance,
-        weightSingletonConflict: settings.weightSingletonConflict ?? DEFAULT_RUN_SETTINGS.weightSingletonConflict,
-        weightSameCourseConflict: settings.weightSameCourseConflict ?? DEFAULT_RUN_SETTINGS.weightSameCourseConflict,
-        weightPeriodDensity: settings.weightPeriodDensity ?? DEFAULT_RUN_SETTINGS.weightPeriodDensity,
-        weightTeacherPatternBalance: settings.weightTeacherPatternBalance ?? DEFAULT_RUN_SETTINGS.weightTeacherPatternBalance,
-        teacherPatternBalanceScale: settings.teacherPatternBalanceScale ?? DEFAULT_RUN_SETTINGS.teacherPatternBalanceScale,
-        weightTightChainConflict: settings.weightTightChainConflict ?? DEFAULT_RUN_SETTINGS.weightTightChainConflict,
-        weightInclusionChainConflict: settings.weightInclusionChainConflict ?? DEFAULT_RUN_SETTINGS.weightInclusionChainConflict,
+        weightDemandCoverage: DEFAULT_RUN_SETTINGS.weightDemandCoverage,
+        weightTeacherBalance: DEFAULT_RUN_SETTINGS.weightTeacherBalance,
+        weightSingletonConflict: DEFAULT_RUN_SETTINGS.weightSingletonConflict,
+        weightSameCourseConflict: DEFAULT_RUN_SETTINGS.weightSameCourseConflict,
+        weightPeriodDensity: DEFAULT_RUN_SETTINGS.weightPeriodDensity,
+        weightTeacherPatternBalance: DEFAULT_RUN_SETTINGS.weightTeacherPatternBalance,
+        teacherPatternBalanceScale: DEFAULT_RUN_SETTINGS.teacherPatternBalanceScale,
+        weightTightChainConflict: DEFAULT_RUN_SETTINGS.weightTightChainConflict,
+        weightInclusionChainConflict: DEFAULT_RUN_SETTINGS.weightInclusionChainConflict,
         strategyStages: [...DEFAULT_RUN_SETTINGS.strategyStages],
         tabuMaxIterations: DEFAULT_RUN_SETTINGS.tabuMaxIterations,
         tabuMaxTabuSize: DEFAULT_RUN_SETTINGS.tabuMaxTabuSize,
@@ -124,12 +124,17 @@ const buildDatasetForPlacement = (dataset) => ({
     observability: null,
     settings: {
         ...(dataset.settings || {}),
-        diagnosticsMode: runSettings.value.diagnosticsMode,
         maxInARow: runSettings.value.maxInARow,
         maxInclusionStudents: runSettings.value.maxInclusionStudents,
         maxInclusionPercentage: runSettings.value.maxInclusionPercentage,
         manualSectionClassroomFill: runSettings.value.manualSectionClassroomFill,
-        separateInclusionCodes: runSettings.value.separateInclusionCodes,
+        separateInclusionCodes: runSettings.value.separateInclusionCodes
+    }
+})
+
+const buildEngineOptions = () => ({
+    engineSettings: {
+        diagnosticsMode: runSettings.value.diagnosticsMode,
         weightDemandCoverage: runSettings.value.weightDemandCoverage,
         weightTeacherBalance: runSettings.value.weightTeacherBalance,
         weightSingletonConflict: runSettings.value.weightSingletonConflict,
@@ -139,10 +144,7 @@ const buildDatasetForPlacement = (dataset) => ({
         teacherPatternBalanceScale: runSettings.value.teacherPatternBalanceScale,
         weightTightChainConflict: runSettings.value.weightTightChainConflict,
         weightInclusionChainConflict: runSettings.value.weightInclusionChainConflict
-    }
-})
-
-const buildEngineOptions = () => ({
+    },
     strategyPipeline: buildStrategyPipeline(),
     ...(Number.isInteger(runSettings.value.randomSeed) ? { randomSeed: runSettings.value.randomSeed } : {})
 })
