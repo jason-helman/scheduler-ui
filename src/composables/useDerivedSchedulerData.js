@@ -99,6 +99,22 @@ const normalizeTypeForLookup = (entityType) => {
 const isSectionRecord = (record) => SECTION_ENTITY_TYPES.has(String(record?.entityType || '').toLowerCase())
 const isSystemRecord = (record) => String(record?.entityType || '').toLowerCase() === 'system'
 const isActionableSeverity = (severity) => ACTIONABLE_LEVELS.has(String(severity || '').toLowerCase())
+const isSectionRef = (ref) => SECTION_ENTITY_TYPES.has(String(ref?.entityType || '').toLowerCase())
+
+const getDecisionSectionIds = (record) => {
+    const ids = new Set()
+
+    if (isSectionRecord(record) && record?.entityId != null) {
+        ids.add(String(record.entityId))
+    }
+
+    ;(record?.related || []).forEach((ref) => {
+        if (!isSectionRef(ref) || ref?.entityId == null) return
+        ids.add(String(ref.entityId))
+    })
+
+    return Array.from(ids)
+}
 
 const buildIdReferenceIndex = (dataset) => {
     const refIndex = EMPTY_REFERENCE_INDEX()
@@ -471,12 +487,15 @@ const deriveDiagnosticsData = (dataset, observability) => {
     })
 
     sectionDecisionLogs.forEach((record) => {
-        if (!isSectionRecord(record)) return
-        const key = String(record.entityId)
-        if (!decisionBySectionId.has(key)) decisionBySectionId.set(key, [])
-        decisionBySectionId.get(key).push(record)
+        const sectionIds = getDecisionSectionIds(record)
+        if (sectionIds.length === 0) return
 
-        decisionCountsBySectionId.set(key, (decisionCountsBySectionId.get(key) || 0) + 1)
+        sectionIds.forEach((key) => {
+            if (!decisionBySectionId.has(key)) decisionBySectionId.set(key, [])
+            decisionBySectionId.get(key).push(record)
+
+            decisionCountsBySectionId.set(key, (decisionCountsBySectionId.get(key) || 0) + 1)
+        })
     })
 
     const rows = (dataset?.sections || [])

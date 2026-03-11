@@ -110,6 +110,120 @@ const compareDecisionRecords = (left, right) => {
     return String(left?.code || '').localeCompare(String(right?.code || ''))
 }
 
+const humanizeToken = (value) => String(value || '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+
+const formatDecisionCode = (code) => {
+    const value = String(code || '')
+    if (!value) return 'Decision'
+
+    const lastToken = value.split('.').pop()
+    return humanizeToken(lastToken)
+}
+
+const primeSeverityForLevel = (level) => {
+    const normalized = String(level || 'info').toLowerCase()
+    if (normalized === 'error') return 'danger'
+    if (normalized === 'warn' || normalized === 'warning') return 'warn'
+    if (normalized === 'debug') return 'secondary'
+    if (normalized === 'success') return 'success'
+    return 'info'
+}
+
+const isTabuMoveSelected = (decision) => decision?.code === 'section.decision.strategy.tabu_move_selected'
+const isTabuMoveRejected = (decision) => decision?.code === 'section.decision.strategy.tabu_move_rejected'
+const isTabuFinalSummary = (decision) => decision?.code === 'section.decision.strategy.tabu_transition'
+
+const resolveAffectedSections = (decision) => {
+    const contextIds = Array.isArray(decision?.context?.affectedSectionIds)
+        ? decision.context.affectedSectionIds
+        : []
+    const relatedIds = Array.isArray(decision?.related)
+        ? decision.related
+            .filter((ref) => String(ref?.entityType || '').toLowerCase() === 'section')
+            .map((ref) => ref?.entityId)
+        : []
+
+    return Array.from(new Set([...contextIds, ...relatedIds].filter((id) => id != null)))
+}
+
+const formatAffectedSections = (decision) => {
+    const labels = resolveAffectedSections(decision)
+        .map((id) => props.resolveIdName(id, 'section'))
+        .filter(Boolean)
+
+    return labels.length > 0 ? labels.join(', ') : '-'
+}
+
+const describeDecision = (decision) => {
+    if (isTabuMoveSelected(decision)) {
+        const move = decision?.context?.move || '-'
+        const scoreDelta = decision?.metrics?.scoreDelta ?? '-'
+        const bestAfter = decision?.metrics?.bestScoreAfter ?? '-'
+        const usedAspiration = decision?.context?.usedAspiration === true
+        const improvedBest = decision?.context?.improvedBestScore === true
+
+        return {
+            title: `Selected tabu move: ${move}`,
+            summary: `${improvedBest ? 'Improved' : 'Changed'} score by ${scoreDelta}. Best score now ${bestAfter}.${usedAspiration ? ' Allowed via aspiration.' : ''}`,
+        }
+    }
+
+    if (isTabuMoveRejected(decision)) {
+        const move = decision?.context?.move || '-'
+        const candidateScore = decision?.metrics?.candidateScore ?? '-'
+        return {
+            title: `Rejected tabu move: ${move}`,
+            summary: `Skipped because the move was tabu and candidate score ${candidateScore} did not beat the current global best.`,
+        }
+    }
+
+    if (isTabuFinalSummary(decision)) {
+        const iterations = decision?.metrics?.iterationsRun ?? '-'
+        const changedSections = decision?.metrics?.changedSections ?? '-'
+        return {
+            title: 'Tabu search completed',
+            summary: `Finished after ${iterations} iteration${Number(iterations) === 1 ? '' : 's'} and changed ${changedSections} section${Number(changedSections) === 1 ? '' : 's'}.`,
+        }
+    }
+
+    return {
+        title: `${formatDecisionCode(decision?.code)}: ${decision?.message || ''}`.trim(),
+        summary: decision?.message || '',
+    }
+}
+
+const describeChain = (chain) => {
+    const record = chain?.lastRecord || chain?.firstRecord
+    if (!record) {
+        return {
+            title: 'Decision Chain',
+            summary: '',
+        }
+    }
+
+    if (isTabuMoveSelected(record) || isTabuMoveRejected(record)) {
+        const iteration = record?.execution?.iteration
+        return {
+            title: `Tabu Iteration ${iteration ?? '-'}`,
+            summary: describeDecision(record).summary,
+        }
+    }
+
+    if (isTabuFinalSummary(record)) {
+        return {
+            title: 'Tabu Finalization',
+            summary: describeDecision(record).summary,
+        }
+    }
+
+    return {
+        title: `Chain ${chain.decisionId}`,
+        summary: record?.message || '',
+    }
+}
+
 const decisionChains = computed(() => {
     const chainsById = new Map()
 
@@ -444,7 +558,10 @@ watch(decisionChains, (chains) => {
                         <div class="flex items-start justify-between gap-4">
                             <div>
                                 <div class="text-sm font-bold text-blue-700 dark:text-blue-300 leading-relaxed">
-                                    Chain {{ chainIdx + 1 }}
+                                    {{ describeChain(chain).title }}
+                                </div>
+                                <div v-if="describeChain(chain).summary" class="mt-1 text-xs text-blue-700/80 dark:text-blue-300/80 max-w-3xl">
+                                    {{ describeChain(chain).summary }}
                                 </div>
                                 <div class="mt-1 text-xs text-blue-700/80 dark:text-blue-300/80 font-semibold">
                                     <span v-if="chain.strategyType">Strategy: {{ chain.strategyType }}</span>
@@ -458,7 +575,7 @@ watch(decisionChains, (chains) => {
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
-                                <Tag :value="chain.lastRecord?.severity || 'info'" severity="info" />
+                                <Tag :value="chain.lastRecord?.severity || 'info'" :severity="primeSeverityForLevel(chain.lastRecord?.severity)" />
                                 <button
                                     type="button"
                                     class="inline-flex items-center gap-2 rounded-full border border-blue-200 dark:border-blue-800 px-3 py-1 text-xs font-black uppercase tracking-widest text-blue-700 dark:text-blue-300 transition-colors hover:bg-blue-100/70 dark:hover:bg-blue-900/30"
@@ -489,7 +606,10 @@ watch(decisionChains, (chains) => {
                                 <div class="flex items-start justify-between gap-4">
                                     <div>
                                         <div class="text-sm font-bold text-blue-700 dark:text-blue-300 leading-relaxed">
-                                            {{ decision.code }}: {{ decision.message }}
+                                            {{ describeDecision(decision).title }}
+                                        </div>
+                                        <div v-if="describeDecision(decision).summary && describeDecision(decision).summary !== decision.message" class="mt-1 text-xs text-blue-700/80 dark:text-blue-300/80">
+                                            {{ describeDecision(decision).summary }}
                                         </div>
                                         <div class="mt-1 text-xs text-blue-700/80 dark:text-blue-300/80 font-semibold">
                                             Level: {{ decision.severity }}
@@ -497,7 +617,14 @@ watch(decisionChains, (chains) => {
                                             <span v-if="decision.execution?.iteration != null"> | Iteration: {{ decision.execution.iteration }}</span>
                                         </div>
                                     </div>
-                                    <Tag :value="decision.severity" severity="info" />
+                                    <Tag :value="decision.severity" :severity="primeSeverityForLevel(decision.severity)" />
+                                </div>
+                                <div
+                                    v-if="resolveAffectedSections(decision).length > 0"
+                                    class="mt-3 text-xs text-blue-700/80 dark:text-blue-300/80"
+                                >
+                                    <div class="font-bold mb-1">Affected Sections</div>
+                                    <div>{{ formatAffectedSections(decision) }}</div>
                                 </div>
                                 <div v-if="decision.metrics && Object.keys(decision.metrics).length > 0" class="mt-3 text-xs text-blue-700/80 dark:text-blue-300/80">
                                     <div class="font-bold mb-1">Metrics</div>
