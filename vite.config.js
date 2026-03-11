@@ -231,11 +231,21 @@ export default defineConfig({
                   req.on('error', reject);
                 });
 
-                const { dataset: incomingDataset } = JSON.parse(body);
+                const {
+                  dataset: incomingDataset,
+                  engineOptions: incomingEngineOptions
+                } = JSON.parse(body);
+
+                const engineOptions =
+                  incomingEngineOptions && typeof incomingEngineOptions === 'object'
+                    ? incomingEngineOptions
+                    : {};
 
                 const diagnosticSink = new InMemoryObservabilitySink()
                 const decisionSink = new InMemoryObservabilitySink()
                 const engine = new SectionPlacementEngine(incomingDataset, {
+                  randomSeed: engineOptions.randomSeed,
+                  strategyPipeline: engineOptions.strategyPipeline,
                   observability: {
                     diagnosticSinks: [diagnosticSink],
                     decisionSinks: [decisionSink]

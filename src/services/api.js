@@ -17,11 +17,11 @@ export const api = {
         return res.json()
     },
 
-    async runSectionPlacement(dataset) {
+    async runSectionPlacement(dataset, engineOptions = {}) {
         const res = await fetch('/api/place-sections', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dataset })
+            body: JSON.stringify({ dataset, engineOptions })
         })
         const result = await res.json()
         if (result.error) throw new Error(result.error)
