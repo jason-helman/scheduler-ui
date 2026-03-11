@@ -47,6 +47,13 @@ const currentSectionDiagnostics = computed(() => {
     return sectionDiagnosticsIndex.value.bySectionId.get(String(selectedSection.value.sectionId)) || []
 })
 
+const parentDiagnosticCount = computed(() => {
+    const parentId = selectedSection.value?.parentSectionId
+    if (parentId == null) return 0
+    const counts = sectionDiagnosticsIndex.value.countsBySectionId.get(String(parentId))
+    return counts?.total || 0
+})
+
 const idsEqual = (a, b) => String(a) === String(b)
 
 watch([() => store.selectedSectionId, sectionRows, () => store.diagnosticsExternalScrollKey], ([newId, sections, externalScrollKey], oldState) => {
@@ -143,6 +150,7 @@ watch(selectedSection, (newSection) => {
                                 :selected-section="selectedSection"
                                 :has-diagnostics="Boolean(store.localDataset?.observability)"
                                 :current-section-diagnostics="currentSectionDiagnostics"
+                                :parent-diagnostic-count="parentDiagnosticCount"
                                 :show-ids="store.showIds"
                                 :resolve-id-name="resolveIdName"
                                 :active-section-list-tab="activeSectionListTab"

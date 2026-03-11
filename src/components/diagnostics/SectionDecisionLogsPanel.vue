@@ -40,6 +40,10 @@ const props = defineProps({
         type: Array,
         required: true
     },
+    parentDecisionCount: {
+        type: Number,
+        default: 0
+    },
     showIds: {
         type: Boolean,
         default: false
@@ -75,6 +79,18 @@ const selectedSectionModel = computed({
 const activeSectionListTabModel = computed({
     get: () => props.activeSectionListTab,
     set: (value) => emit('update:activeSectionListTab', value)
+})
+
+const sectionById = computed(() => {
+    const map = new Map()
+    ;(props.sectionRows || []).forEach((section) => map.set(String(section.sectionId), section))
+    return map
+})
+
+const parentSection = computed(() => {
+    const parentId = selectedSectionModel.value?.parentSectionId
+    if (parentId == null) return null
+    return sectionById.value.get(String(parentId)) || null
 })
 
 const compareDecisionRecords = (left, right) => {
@@ -162,10 +178,11 @@ const toggleChainCollapsed = (decisionId) => {
     }
 }
 
-const scrollToTargetSection = async () => {
-    if (props.scrollToSectionId == null) return
+const scrollToTargetSection = async (explicitTargetId = null) => {
+    const resolvedTargetId = explicitTargetId ?? props.scrollToSectionId
+    if (resolvedTargetId == null) return
 
-    const targetId = String(props.scrollToSectionId)
+    const targetId = String(resolvedTargetId)
 
     for (let attempt = 0; attempt < 20; attempt += 1) {
         await nextTick()
@@ -210,6 +227,15 @@ const scrollToTargetSection = async () => {
 
         await new Promise((resolve) => requestAnimationFrame(resolve))
     }
+}
+
+const selectSection = async (section) => {
+    if (!section) return
+    activeSectionListTabModel.value = section.isInvalid ? '2' : (section.isPlaced ? '1' : '0')
+    selectedSectionModel.value = section
+    await nextTick()
+    scrollToTargetSection(section.sectionId)
+    setTimeout(() => scrollToTargetSection(section.sectionId), 80)
 }
 
 watch(() => props.scrollRequestKey, (requestKey) => {
@@ -367,6 +393,30 @@ watch(decisionChains, (chains) => {
                         <CopyButton :value="selectedSectionModel.sectionId" label="Section ID" />
                         <div class="text-[10px] font-black uppercase text-gray-400">Section ID</div>
                     </div>
+                </div>
+
+                <div v-if="parentSection" class="flex items-center justify-between gap-4 rounded-2xl border border-sky-100 dark:border-sky-900/30 bg-sky-50/60 dark:bg-sky-900/10 px-5 py-4">
+                    <div class="min-w-0">
+                        <div class="text-[10px] font-black uppercase tracking-widest text-sky-600 dark:text-sky-300">Subsection Context</div>
+                        <div class="mt-1 text-sm font-semibold text-sky-800 dark:text-sky-100">
+                            This subsection belongs to {{ parentSection.course_name || resolveIdName(parentSection.sectionId, 'section') }}.
+                        </div>
+                        <div class="mt-1 text-xs text-sky-700/80 dark:text-sky-200/80">
+                            Parent section decision chains may contain the main placement narrative.
+                        </div>
+                        <div class="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-sky-700 dark:text-sky-200">
+                            <span class="rounded-full bg-sky-100 dark:bg-sky-900/40 px-2.5 py-1">
+                                Parent decisions: {{ parentDecisionCount }}
+                            </span>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        class="shrink-0 rounded-full border border-sky-200 dark:border-sky-800 px-3 py-1.5 text-xs font-black uppercase tracking-widest text-sky-700 dark:text-sky-200 transition-colors hover:bg-sky-100 dark:hover:bg-sky-900/30"
+                        @click="selectSection(parentSection)"
+                    >
+                        View Parent
+                    </button>
                 </div>
 
                 <div v-if="!hasDecisionLogs" class="p-12 text-center bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/30">

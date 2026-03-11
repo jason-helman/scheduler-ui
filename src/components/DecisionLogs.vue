@@ -35,6 +35,12 @@ const currentSectionDecisionLogs = computed(() => {
     return sectionDecisionIndex.value.bySectionId.get(String(selectedSection.value.sectionId)) || []
 })
 
+const parentDecisionCount = computed(() => {
+    const parentId = selectedSection.value?.parentSectionId
+    if (parentId == null) return 0
+    return sectionDecisionIndex.value.countsBySectionId.get(String(parentId)) || 0
+})
+
 const idsEqual = (a, b) => String(a) === String(b)
 
 watch([() => store.selectedSectionId, sectionRows, () => store.diagnosticsExternalScrollKey], ([newId, sections, externalScrollKey], oldState) => {
@@ -118,6 +124,7 @@ watch(selectedSection, (newSection) => {
                                 :selected-section="selectedSection"
                                 :has-decision-logs="Boolean(store.localDataset?.observability)"
                                 :current-section-decision-logs="currentSectionDecisionLogs"
+                                :parent-decision-count="parentDecisionCount"
                                 :show-ids="store.showIds"
                                 :resolve-id-name="resolveIdName"
                                 :active-section-list-tab="activeSectionListTab"
