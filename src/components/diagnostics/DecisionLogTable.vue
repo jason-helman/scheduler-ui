@@ -55,6 +55,13 @@ const tableRows = 100
                             {{ getDecisionScope(slotProps.data) }}
                         </template>
                     </Column>
+                    <Column header="Strategy" sortable style="width: 11rem">
+                        <template #body="slotProps">
+                            <span class="text-xs">
+                                {{ slotProps.data.execution?.strategyType || '-' }}
+                            </span>
+                        </template>
+                    </Column>
                     <Column field="severity" header="Level" sortable style="width: 8rem" />
                     <Column field="category" header="Category" sortable style="width: 11rem" />
                     <Column field="retention" header="Retention" sortable style="width: 9rem" />
