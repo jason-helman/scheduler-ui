@@ -542,18 +542,7 @@ const deriveDiagnosticsData = (dataset, observability) => {
     let teacherBreakSummary = null
 
     sectionPlacement.forEach((record) => {
-        if (!isSystemRecord(record) || !record.metrics) return
-
-        Object.entries(record.metrics).forEach(([key, value]) => {
-            const normalizedKey = normalizeMetricKey(key)
-            if (normalizedKey === 'performanceMetrics' && value && typeof value === 'object' && !Array.isArray(value)) {
-                Object.entries(value).forEach(([nestedKey, nestedValue]) => {
-                    systemMetrics[normalizeMetricKey(nestedKey)] = nestedValue
-                })
-                return
-            }
-            systemMetrics[normalizedKey] = value
-        })
+        if (!record.metrics) return
 
         const metricType = record.metrics.metricType
         if (record.code === 'section.performance.timing' || metricType === 'performance_timing') {
@@ -600,6 +589,19 @@ const deriveDiagnosticsData = (dataset, observability) => {
                 periodCount: Number(record.metrics.periodCount || 0),
             }
         }
+
+        if (!isSystemRecord(record)) return
+
+        Object.entries(record.metrics).forEach(([key, value]) => {
+            const normalizedKey = normalizeMetricKey(key)
+            if (normalizedKey === 'performanceMetrics' && value && typeof value === 'object' && !Array.isArray(value)) {
+                Object.entries(value).forEach(([nestedKey, nestedValue]) => {
+                    systemMetrics[normalizeMetricKey(nestedKey)] = nestedValue
+                })
+                return
+            }
+            systemMetrics[normalizedKey] = value
+        })
     })
 
     const derivedPerformanceTimingRows = (performanceTimingRows.length > 0
