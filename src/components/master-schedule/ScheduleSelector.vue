@@ -10,6 +10,41 @@ import { CopyButton } from '../common'
 import { store } from '../../store'
 import { api } from '../../services/api'
 
+const FALLBACK_STRATEGY_DESCRIPTORS = [
+    {
+        id: 'greedy',
+        metadata: { kind: 'construction', supportsExactScoring: true, mutatesSharedRuntime: true },
+        requiredRuntimeKeys: [],
+        isDefaultStage: true,
+        defaultStage: { id: 'greedy' }
+    },
+    {
+        id: 'beam',
+        metadata: { kind: 'construction', supportsExactScoring: false, mutatesSharedRuntime: false },
+        requiredRuntimeKeys: [],
+        isDefaultStage: false
+    },
+    {
+        id: 'lns',
+        metadata: { kind: 'optimization', supportsExactScoring: false, mutatesSharedRuntime: false },
+        requiredRuntimeKeys: [],
+        isDefaultStage: false
+    },
+    {
+        id: 'multistart',
+        metadata: { kind: 'construction', supportsExactScoring: false, mutatesSharedRuntime: false },
+        requiredRuntimeKeys: [],
+        isDefaultStage: false
+    },
+    {
+        id: 'tabu',
+        metadata: { kind: 'optimization', supportsExactScoring: true, mutatesSharedRuntime: true },
+        requiredRuntimeKeys: [],
+        isDefaultStage: true,
+        defaultStage: { id: 'tabu' }
+    }
+]
+
 const DEFAULT_RUN_SETTINGS = {
     diagnosticsMode: 'trace',
     maxInARow: 0,
@@ -27,9 +62,20 @@ const DEFAULT_RUN_SETTINGS = {
     weightTightChainConflict: 400,
     weightInclusionChainConflict: 1200,
     strategyStages: ['greedy', 'tabu'],
+    beamWidth: 4,
+    beamBranchLimitPerSection: 3,
+    beamMaxStatesEvaluated: 2000,
+    beamScoreMode: 'approximate',
+    multistartRuns: 5,
+    multistartCandidatePoolSize: 2,
     tabuMaxIterations: 100,
     tabuMaxTabuSize: 30,
     tabuNeighborhoodSampleLimit: 25,
+    lnsIterations: 40,
+    lnsDestroySize: 6,
+    lnsDestroyMode: 'hybrid_conflict',
+    lnsRepairMode: 'greedy',
+    lnsScoreMode: 'approximate',
     randomSeed: null
 }
 
@@ -38,12 +84,66 @@ const diagnosticsModeOptions = [
     { label: 'Summary', value: 'summary' }
 ]
 
-const strategyStageOptions = [
-    { label: 'Greedy', value: 'greedy' },
-    { label: 'Tabu', value: 'tabu' }
+const beamScoreModeOptions = [
+    { label: 'Approximate', value: 'approximate' },
+    { label: 'Hybrid', value: 'hybrid' }
 ]
 
-const PIPELINE_STAGE_ORDER = ['greedy', 'tabu']
+const lnsDestroyModeOptions = [
+    { label: 'Hybrid Conflict', value: 'hybrid_conflict' },
+    { label: 'Conflict Cluster', value: 'conflict_cluster' },
+    { label: 'Random', value: 'random' }
+]
+
+const lnsRepairModeOptions = [
+    { label: 'Greedy', value: 'greedy' }
+]
+
+const startCase = (value) => String(value || '')
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(' ')
+
+const normalizeStrategyDescriptor = (descriptor) => ({
+    ...descriptor,
+    id: String(descriptor?.id || ''),
+    metadata: descriptor?.metadata || {},
+    requiredRuntimeKeys: Array.isArray(descriptor?.requiredRuntimeKeys) ? descriptor.requiredRuntimeKeys : [],
+    isDefaultStage: Boolean(descriptor?.isDefaultStage),
+    defaultStage: descriptor?.defaultStage || null
+})
+
+const getStrategyDescriptors = (dataset) => {
+    const descriptors = Array.isArray(dataset?.strategyDescriptors) && dataset.strategyDescriptors.length > 0
+        ? dataset.strategyDescriptors
+        : FALLBACK_STRATEGY_DESCRIPTORS
+
+    return descriptors
+        .map(normalizeStrategyDescriptor)
+        .filter((descriptor) => descriptor.id)
+}
+
+const getDefaultStrategyStages = (descriptors) => {
+    const stageIds = descriptors
+        .filter((descriptor) => descriptor.isDefaultStage)
+        .map((descriptor) => descriptor.id)
+
+    return stageIds.length > 0 ? stageIds : [...DEFAULT_RUN_SETTINGS.strategyStages]
+}
+
+const cloneStage = (stage) => JSON.parse(JSON.stringify(stage))
+
+const formatStrategyLabel = (descriptor) => {
+    const base = startCase(descriptor.id)
+    const kind = descriptor?.metadata?.kind ? ` (${startCase(descriptor.metadata.kind)})` : ''
+    return `${base}${kind}`
+}
+
+const formatStageSummary = (stageId) => {
+    const descriptor = descriptorById.value.get(stageId)
+    return descriptor ? formatStrategyLabel(descriptor) : startCase(stageId)
+}
 
 const manualClassroomFillOptions = [
     { label: 'Off', value: 'off' },
@@ -67,6 +167,7 @@ const numericSettingFields = [
 
 const createRunSettings = (dataset) => {
     const settings = dataset?.settings || {}
+    const descriptors = getStrategyDescriptors(dataset)
 
     return {
         diagnosticsMode: DEFAULT_RUN_SETTINGS.diagnosticsMode,
@@ -84,39 +185,119 @@ const createRunSettings = (dataset) => {
         teacherPatternBalanceScale: DEFAULT_RUN_SETTINGS.teacherPatternBalanceScale,
         weightTightChainConflict: DEFAULT_RUN_SETTINGS.weightTightChainConflict,
         weightInclusionChainConflict: DEFAULT_RUN_SETTINGS.weightInclusionChainConflict,
-        strategyStages: [...DEFAULT_RUN_SETTINGS.strategyStages],
+        strategyStages: [...getDefaultStrategyStages(descriptors)],
+        beamWidth: DEFAULT_RUN_SETTINGS.beamWidth,
+        beamBranchLimitPerSection: DEFAULT_RUN_SETTINGS.beamBranchLimitPerSection,
+        beamMaxStatesEvaluated: DEFAULT_RUN_SETTINGS.beamMaxStatesEvaluated,
+        beamScoreMode: DEFAULT_RUN_SETTINGS.beamScoreMode,
+        multistartRuns: DEFAULT_RUN_SETTINGS.multistartRuns,
+        multistartCandidatePoolSize: DEFAULT_RUN_SETTINGS.multistartCandidatePoolSize,
         tabuMaxIterations: DEFAULT_RUN_SETTINGS.tabuMaxIterations,
         tabuMaxTabuSize: DEFAULT_RUN_SETTINGS.tabuMaxTabuSize,
         tabuNeighborhoodSampleLimit: DEFAULT_RUN_SETTINGS.tabuNeighborhoodSampleLimit,
+        lnsIterations: DEFAULT_RUN_SETTINGS.lnsIterations,
+        lnsDestroySize: DEFAULT_RUN_SETTINGS.lnsDestroySize,
+        lnsDestroyMode: DEFAULT_RUN_SETTINGS.lnsDestroyMode,
+        lnsRepairMode: DEFAULT_RUN_SETTINGS.lnsRepairMode,
+        lnsScoreMode: DEFAULT_RUN_SETTINGS.lnsScoreMode,
         randomSeed: DEFAULT_RUN_SETTINGS.randomSeed
     }
 }
 
 const showRunSettings = ref(false)
 const runSettings = ref(createRunSettings(null))
-const selectedStrategyStages = computed(() =>
-    PIPELINE_STAGE_ORDER.filter((stageId) => (runSettings.value.strategyStages || []).includes(stageId))
+const availableStrategyDescriptors = computed(() => getStrategyDescriptors(store.localDataset))
+const descriptorById = computed(() => new Map(availableStrategyDescriptors.value.map((descriptor) => [descriptor.id, descriptor])))
+const strategyStageOptions = computed(() =>
+    availableStrategyDescriptors.value.map((descriptor) => ({
+        label: formatStrategyLabel(descriptor),
+        value: descriptor.id,
+        kind: descriptor?.metadata?.kind || 'strategy',
+        isDefaultStage: descriptor.isDefaultStage
+    }))
 )
+const selectedStrategyStages = computed(() =>
+    availableStrategyDescriptors.value
+        .map((descriptor) => descriptor.id)
+        .filter((stageId) => (runSettings.value.strategyStages || []).includes(stageId))
+)
+const selectedStageDescriptors = computed(() =>
+    selectedStrategyStages.value
+        .map((stageId) => descriptorById.value.get(stageId))
+        .filter(Boolean)
+)
+const selectedConstructionStages = computed(() =>
+    selectedStageDescriptors.value.filter((descriptor) => descriptor?.metadata?.kind === 'construction')
+)
+const pipelineCompatibilityMessage = computed(() => {
+    if (selectedConstructionStages.value.length <= 1) return null
+    return `Only one construction stage is allowed. Selected construction stages: ${selectedConstructionStages.value.map((descriptor) => startCase(descriptor.id)).join(', ')}.`
+})
+const hasPipelineCompatibilityError = computed(() => Boolean(pipelineCompatibilityMessage.value))
+const hasBeamStage = computed(() => selectedStrategyStages.value.includes('beam'))
+const hasMultistartStage = computed(() => selectedStrategyStages.value.includes('multistart'))
 const hasTabuStage = computed(() => selectedStrategyStages.value.includes('tabu'))
+const hasLnsStage = computed(() => selectedStrategyStages.value.includes('lns'))
 const hasStrategyStagesSelected = computed(() => selectedStrategyStages.value.length > 0)
 
 const resetRunSettings = (dataset = store.localDataset) => {
     runSettings.value = createRunSettings(dataset)
 }
 
-const buildStrategyPipeline = () => {
-    const tabuStage = {
-        id: 'tabu',
-        options: {
-            maxIterations: runSettings.value.tabuMaxIterations,
-            maxTabuSize: runSettings.value.tabuMaxTabuSize,
-            neighborhoodSampleLimit: runSettings.value.tabuNeighborhoodSampleLimit
+const buildStrategyStage = (stageId) => {
+    const descriptor = descriptorById.value.get(stageId)
+
+    if (stageId === 'beam') {
+        return {
+            id: 'beam',
+            options: {
+                beamWidth: runSettings.value.beamWidth,
+                branchLimitPerSection: runSettings.value.beamBranchLimitPerSection,
+                maxStatesEvaluated: runSettings.value.beamMaxStatesEvaluated,
+                scoreMode: runSettings.value.beamScoreMode
+            }
         }
     }
 
-    return selectedStrategyStages.value.map((stageId) =>
-        stageId === 'tabu' ? tabuStage : { id: 'greedy' }
-    )
+    if (stageId === 'multistart') {
+        return {
+            id: 'multistart',
+            options: {
+                runs: runSettings.value.multistartRuns,
+                candidatePoolSize: runSettings.value.multistartCandidatePoolSize
+            }
+        }
+    }
+
+    if (stageId === 'tabu') {
+        return {
+            id: 'tabu',
+            options: {
+                maxIterations: runSettings.value.tabuMaxIterations,
+                maxTabuSize: runSettings.value.tabuMaxTabuSize,
+                neighborhoodSampleLimit: runSettings.value.tabuNeighborhoodSampleLimit
+            }
+        }
+    }
+
+    if (stageId === 'lns') {
+        return {
+            id: 'lns',
+            options: {
+                iterations: runSettings.value.lnsIterations,
+                destroySize: runSettings.value.lnsDestroySize,
+                destroyMode: runSettings.value.lnsDestroyMode,
+                repairMode: runSettings.value.lnsRepairMode,
+                scoreMode: runSettings.value.lnsScoreMode
+            }
+        }
+    }
+
+    return descriptor?.defaultStage ? cloneStage(descriptor.defaultStage) : { id: stageId }
+}
+
+const buildStrategyPipeline = () => {
+    return selectedStrategyStages.value.map((stageId) => buildStrategyStage(stageId))
 }
 
 const buildDatasetForPlacement = (dataset) => ({
@@ -151,7 +332,7 @@ const buildEngineOptions = () => ({
 
 const selectedStrategySummary = computed(() =>
     selectedStrategyStages.value
-        .map((stageId) => strategyStageOptions.find((option) => option.value === stageId)?.label || stageId)
+        .map((stageId) => formatStageSummary(stageId))
         .join(' + ')
 )
 
@@ -232,6 +413,10 @@ const runPlacement = async () => {
     if (!store.localDataset) return
     if (!hasStrategyStagesSelected.value) {
         store.error = 'Select at least one strategy stage before running placement.'
+        return
+    }
+    if (hasPipelineCompatibilityError.value) {
+        store.error = pipelineCompatibilityMessage.value
         return
     }
     
@@ -441,7 +626,7 @@ watch(
                 <div>
                     <div class="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Placement Run Settings</div>
                     <div class="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                        Configure dataset settings, strategy pipeline, and tabu search options before running section placement.
+                        Configure dataset settings, strategy pipeline, and stage options before running section placement.
                     </div>
                 </div>
                 <Button
@@ -499,11 +684,49 @@ watch(
                                 placeholder="Select strategy stages"
                                 :max-selected-labels="2"
                             />
+                            <span v-if="pipelineCompatibilityMessage" class="text-xs text-red-600 dark:text-red-300">{{ pipelineCompatibilityMessage }}</span>
+                            <span v-else class="text-xs text-gray-500 dark:text-gray-400">Available stages come from the current scheduler-library descriptor surface.</span>
                         </div>
                         <div class="flex flex-col gap-2">
                             <label class="text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Random Seed</label>
                             <InputNumber v-model="runSettings.randomSeed" fluid :use-grouping="false" placeholder="Auto-generate each run" />
                             <span class="text-xs text-gray-500 dark:text-gray-400">Leave blank to let the engine generate a fresh seed.</span>
+                        </div>
+                    </div>
+
+                    <div v-if="hasBeamStage" class="space-y-4 rounded-xl border border-cyan-200 dark:border-cyan-900/40 bg-white/70 dark:bg-slate-900/50 p-4">
+                        <div class="text-[11px] font-black uppercase tracking-widest text-cyan-600 dark:text-cyan-300">Beam Options</div>
+                        <div class="grid gap-4">
+                            <div class="flex flex-col gap-2">
+                                <label class="text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Beam Width</label>
+                                <InputNumber v-model="runSettings.beamWidth" fluid :use-grouping="false" />
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <label class="text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Branch Limit Per Section</label>
+                                <InputNumber v-model="runSettings.beamBranchLimitPerSection" fluid :use-grouping="false" />
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <label class="text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Max States Evaluated</label>
+                                <InputNumber v-model="runSettings.beamMaxStatesEvaluated" fluid :use-grouping="false" />
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <label class="text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Score Mode</label>
+                                <Select v-model="runSettings.beamScoreMode" :options="beamScoreModeOptions" optionLabel="label" optionValue="value" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="hasMultistartStage" class="space-y-4 rounded-xl border border-amber-200 dark:border-amber-900/40 bg-white/70 dark:bg-slate-900/50 p-4">
+                        <div class="text-[11px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-300">Multistart Options</div>
+                        <div class="grid gap-4">
+                            <div class="flex flex-col gap-2">
+                                <label class="text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Runs</label>
+                                <InputNumber v-model="runSettings.multistartRuns" fluid :use-grouping="false" />
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <label class="text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Candidate Pool Size</label>
+                                <InputNumber v-model="runSettings.multistartCandidatePoolSize" fluid :use-grouping="false" />
+                            </div>
                         </div>
                     </div>
 
@@ -525,12 +748,47 @@ watch(
                         </div>
                     </div>
 
+                    <div v-if="hasLnsStage" class="space-y-4 rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-white/70 dark:bg-slate-900/50 p-4">
+                        <div class="text-[11px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-300">LNS Options</div>
+                        <div class="grid gap-4">
+                            <div class="flex flex-col gap-2">
+                                <label class="text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Iterations</label>
+                                <InputNumber v-model="runSettings.lnsIterations" fluid :use-grouping="false" />
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <label class="text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Destroy Size</label>
+                                <InputNumber v-model="runSettings.lnsDestroySize" fluid :use-grouping="false" />
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <label class="text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Destroy Mode</label>
+                                <Select v-model="runSettings.lnsDestroyMode" :options="lnsDestroyModeOptions" optionLabel="label" optionValue="value" />
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <label class="text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Repair Mode</label>
+                                <Select v-model="runSettings.lnsRepairMode" :options="lnsRepairModeOptions" optionLabel="label" optionValue="value" />
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <label class="text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Score Mode</label>
+                                <Select v-model="runSettings.lnsScoreMode" :options="beamScoreModeOptions" optionLabel="label" optionValue="value" />
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/50 p-4 text-sm text-slate-600 dark:text-slate-300">
                         <div class="font-black uppercase tracking-widest text-[11px] text-slate-500 dark:text-slate-400">Run Preview</div>
                         <div class="mt-2">Pipeline: {{ selectedStrategySummary || 'No stages selected' }}</div>
                         <div class="mt-1">Diagnostics: {{ runSettings.diagnosticsMode }}</div>
+                        <div v-if="hasBeamStage" class="mt-1">
+                            Beam: width {{ runSettings.beamWidth }}, branch limit {{ runSettings.beamBranchLimitPerSection }}, max states {{ runSettings.beamMaxStatesEvaluated }}, {{ runSettings.beamScoreMode }} scoring
+                        </div>
+                        <div v-if="hasMultistartStage" class="mt-1">
+                            Multistart: {{ runSettings.multistartRuns }} runs, candidate pool {{ runSettings.multistartCandidatePoolSize }}
+                        </div>
                         <div v-if="hasTabuStage" class="mt-1">
                             Tabu: {{ runSettings.tabuMaxIterations }} iterations, tabu size {{ runSettings.tabuMaxTabuSize }}, sample limit {{ runSettings.tabuNeighborhoodSampleLimit }}
+                        </div>
+                        <div v-if="hasLnsStage" class="mt-1">
+                            LNS: {{ runSettings.lnsIterations }} iterations, destroy size {{ runSettings.lnsDestroySize }}, {{ runSettings.lnsDestroyMode }} destroy / {{ runSettings.lnsRepairMode }} repair / {{ runSettings.lnsScoreMode }} scoring
                         </div>
                         <div class="mt-1">
                             Seed: {{ runSettings.randomSeed == null ? 'auto-generated' : runSettings.randomSeed }}

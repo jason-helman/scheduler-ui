@@ -37,6 +37,24 @@ const resolveFinalGlobalScore = (metrics) => {
     return null
 }
 
+const STRATEGY_RUNTIME_CANDIDATES = [
+    ['tabuSearchMs', 'Tabu Search Time'],
+    ['lnsTotalMs', 'LNS Time'],
+    ['beamTotalMs', 'Beam Search Time'],
+    ['multistartTotalMs', 'Multistart Time'],
+    ['greedyPlacementMs', 'Greedy Placement Time']
+]
+
+const resolvePrimaryStrategyRuntime = (metrics) => {
+    const match = STRATEGY_RUNTIME_CANDIDATES.find(([key]) => metrics?.[key] != null && !Number.isNaN(Number(metrics[key])))
+    return match ? Number(metrics[match[0]]) : null
+}
+
+const resolvePrimaryStrategyRuntimeLabel = (metrics) => {
+    const match = STRATEGY_RUNTIME_CANDIDATES.find(([key]) => metrics?.[key] != null && !Number.isNaN(Number(metrics[key])))
+    return match?.[1] || 'Primary Strategy Time'
+}
+
 const pad2 = (value) => String(value).padStart(2, '0')
 
 const formatDuration = (value) => {
@@ -71,9 +89,9 @@ const formatDuration = (value) => {
         <Card class="!shadow-sm !rounded-2xl border border-gray-100 dark:border-gray-800">
             <template #content>
                 <div class="flex flex-col gap-1">
-                    <span class="text-xs font-black uppercase tracking-widest text-gray-400">Tabu Search Time</span>
+                    <span class="text-xs font-black uppercase tracking-widest text-gray-400">{{ resolvePrimaryStrategyRuntimeLabel(systemMetrics) }}</span>
                     <div class="flex items-end gap-2">
-                        <span class="text-4xl font-black text-purple-600 dark:text-purple-400">{{ formatDuration(systemMetrics.tabuSearchMs) }}</span>
+                        <span class="text-4xl font-black text-purple-600 dark:text-purple-400">{{ formatDuration(resolvePrimaryStrategyRuntime(systemMetrics)) }}</span>
                     </div>
                 </div>
             </template>

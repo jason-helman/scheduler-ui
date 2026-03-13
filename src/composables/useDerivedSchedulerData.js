@@ -28,8 +28,13 @@ const normalizeMetricKey = (key) => {
     const mapping = {
         pre_populate_ms: 'prePopulateMs',
         greedy_placement_ms: 'greedyPlacementMs',
+        'greedy.totalMs': 'greedyPlacementMs',
         total_run_ms: 'totalRunMs',
         tabu_search_ms: 'tabuSearchMs',
+        'tabu.totalMs': 'tabuSearchMs',
+        'beam.totalMs': 'beamTotalMs',
+        'multistart.totalMs': 'multistartTotalMs',
+        'lns.totalMs': 'lnsTotalMs',
         classroom_assignment_ms: 'classroomAssignmentMs',
         diagnostics_finalize_ms: 'diagnosticsFinalizeMs',
         global_score_before_tabu: 'globalScoreBeforeTabu',
@@ -519,7 +524,17 @@ const deriveDiagnosticsData = (dataset, observability) => {
         })
 
     const systemMetrics = {}
-    const timingOrder = ['prePopulateMs', 'greedyPlacementMs', 'tabuSearchMs', 'classroomAssignmentMs', 'diagnosticsFinalizeMs', 'totalRunMs']
+    const timingOrder = [
+        'prePopulateMs',
+        'greedyPlacementMs',
+        'beamTotalMs',
+        'multistartTotalMs',
+        'tabuSearchMs',
+        'lnsTotalMs',
+        'classroomAssignmentMs',
+        'diagnosticsFinalizeMs',
+        'totalRunMs'
+    ]
     const performanceTimingRows = []
     const periodOpportunityRows = []
     let periodOpportunitySummary = null

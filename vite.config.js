@@ -217,6 +217,11 @@ export default defineConfig({
           };
         }
 
+        function getStrategyDescriptors(rawDataset) {
+          const engine = new SectionPlacementEngine(rawDataset);
+          return engine.getAvailableStrategyDescriptors();
+        }
+
         server.middlewares.use(async (req, res, next) => {
           if (req.url.startsWith('/api/')) {
             res.setHeader('Content-Type', 'application/json');
@@ -331,7 +336,10 @@ export default defineConfig({
                 const schoolId = params.get('schoolId');
                 const svId = params.get('svId');
                 const dataset = await getRawDataset(schoolId, svId);
-                return res.end(JSON.stringify(dataset));
+                return res.end(JSON.stringify({
+                  ...dataset,
+                  strategyDescriptors: getStrategyDescriptors(dataset)
+                }));
               }
 
               res.statusCode = 404;
